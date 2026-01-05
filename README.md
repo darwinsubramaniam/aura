@@ -1,6 +1,6 @@
-# Auro
+# Aura
 
-Auro is a crypto tracking app built with Tauri, React and Typescript in Vite.
+Aura is a crypto tracking app built with Tauri, React and Typescript in Vite.
 
 ## Recommended IDE Setup
 
