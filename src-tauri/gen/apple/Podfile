@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'auro_iOS' do
+target 'aura_iOS' do
 platform :ios, '14.0'
-  # Pods for auro_iOS
+  # Pods for aura_iOS
 end
 
-target 'auro_macOS' do
+target 'aura_macOS' do
 platform :osx, '11.0'
-  # Pods for auro_macOS
+  # Pods for aura_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile
