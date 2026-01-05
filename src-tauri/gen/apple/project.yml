@@ -1,6 +1,6 @@
-name: auro
+name: aura
 options:
-  bundleIdPrefix: com.dw3labs.auro
+  bundleIdPrefix: com.dw3labs.aura
   deploymentTarget:
     iOS: 14.0
 fileGroups: [../../src]
@@ -10,8 +10,8 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: auro
-      PRODUCT_BUNDLE_IDENTIFIER: com.dw3labs.auro
+      PRODUCT_NAME: Aura
+      PRODUCT_BUNDLE_IDENTIFIER: com.dw3labs.aura
 targetTemplates:
   app:
     type: application
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  auro_iOS:
+  aura_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: auro_iOS
+      - path: aura_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: auro_iOS/Info.plist
+      path: aura_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -54,7 +54,7 @@ targets:
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "0.1.0"
     entitlements:
-      path: auro_iOS/auro_iOS.entitlements
+      path: aura_iOS/aura_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

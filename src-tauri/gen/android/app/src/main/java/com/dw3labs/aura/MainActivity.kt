@@ -1,4 +1,4 @@
-package com.dw3labs.auro
+package com.dw3labs.aura
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

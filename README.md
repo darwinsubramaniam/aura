@@ -2,6 +2,17 @@
 
 Aura is a crypto tracking app built with Tauri, React and Typescript in Vite.
 
-## Recommended IDE Setup
+Developed for:  
+- Desktop (macOS, Windows, Linux)
+- Mobile (Android, iOS)
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+
+## Desktop 
+![alt text](docs/screenshots/desktop.png)
+
+## Mobile 
+Android
+![alt text](docs/screenshots/android.png)
+
+iOS
+![alt text](docs/screenshots/ios.png)

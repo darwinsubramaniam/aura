@@ -28,8 +28,7 @@ impl SysTracker {
             .bind(chrono::Local::now().naive_local())
             .execute(&db.0)
             .await
-            .map_err(|e| format!("failed to update last updated at: {e}"))
-            .unwrap();
+            .map_err(|e| format!("failed to update last updated at: {e}"))?;
         Ok(())
     }
 }

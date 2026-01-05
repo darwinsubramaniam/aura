@@ -18,7 +18,8 @@ pub async fn init_db(app: &AppHandle) -> Result<SqlitePool, String> {
         .connect_with(
             sqlx::sqlite::SqliteConnectOptions::from_str(&db_url)
                 .map_err(|e| format!("failed to parse db url: {e}"))?
-                .create_if_missing(true),
+                .create_if_missing(true)
+                .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal),
         )
         .await
         .map_err(|e| format!("db connect error: {e}"))?;
@@ -33,6 +34,17 @@ pub async fn init_db(app: &AppHandle) -> Result<SqlitePool, String> {
 }
 
 async fn set_app_data_dir(app: &AppHandle, config: &AppConfig) -> Result<PathBuf, String> {
+    // On mobile, we must use the app_data_dir regardless of env setting because we can't write to current_dir
+    if cfg!(mobile) {
+        let app_data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("app data dir error: {e}"))?;
+        std::fs::create_dir_all(&app_data_dir).map_err(|e| format!("create dir error: {e}"))?;
+        return Ok(app_data_dir);
+    }
+
+    // On desktop, we can use the app_data_dir based on env setting
     // if env is dev , the app_data_dir is src-tauri/app_data_dir
     // if env is prod , the app_data_dir is as per tauri default based on the platform
     let app_data_dir = match config.env.as_str() {
