@@ -78,8 +78,8 @@ impl FiatService {
         let limit = limit.unwrap_or(50);
         let offset = offset.unwrap_or(0);
         let base_query = if let Some(symbol) = symbol {
-            sqlx::query_as::<_, Fiat>("SELECT * FROM fiat WHERE symbol = ? LIMIT ? OFFSET ?")
-                .bind(symbol)
+            sqlx::query_as::<_, Fiat>("SELECT * FROM fiat WHERE symbol LIKE ? LIMIT ? OFFSET ?")
+                .bind(format!("%{}%", symbol))
         } else {
             sqlx::query_as::<_, Fiat>("SELECT * FROM fiat LIMIT ? OFFSET ?")
         };
