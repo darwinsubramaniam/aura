@@ -4,12 +4,16 @@ import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [currencies, setCurrencies] = useState([]);
+  const [currencySymbol, setCurrencySymbol] = useState("");
 
-  async function greet() {
+  async function get_currencies() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+    invoke("get_available_currencies", { symbol: currencySymbol, limit: 50, offset: 0 }).then((currencies: any) => {
+      setCurrencies(currencies);
+    }).catch((error: any) => {
+      console.error(error);
+    });
   }
 
   return (
@@ -33,17 +37,17 @@ function App() {
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
-          greet();
+          get_currencies();
         }}
       >
         <input
           id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+          onChange={(e) => setCurrencySymbol(e.currentTarget.value)}
+          placeholder="Enter a currency symbol..."
         />
-        <button type="submit">Greet</button>
+        <button type="submit">Get Currencies</button>
       </form>
-      <p>{greetMsg}</p>
+      <p>{JSON.stringify(currencies)}</p>
     </main>
   );
 }

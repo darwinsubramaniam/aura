@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Auro",
+  "productName": "Aura",
   "version": "0.1.0",
-  "identifier": "com.dw3labs.auro",
+  "identifier": "com.dw3labs.aura",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Auro",
+        "title": "Aura",
         "width": 800,
         "height": 600
       }

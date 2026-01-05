@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS fiat (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    symbol TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on symbol
+CREATE INDEX idx_fiat_symbol ON fiat (symbol);

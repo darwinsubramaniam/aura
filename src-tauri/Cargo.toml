@@ -1,5 +1,5 @@
 [package]
-name = "auro"
+name = "aura"
 version = "0.1.0"
 description = "Auro the crypto tracking asset app"
 authors = ["Darwin Subramaniam <darwinsubramaniam@gmail.com>"]
@@ -11,14 +11,25 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "auro_lib"
+name = "aura_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+dotenvy = "0.15.7"
 
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "sqlite",
+    "macros",
+    "chrono",
+] }
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.13.1", features = ["json"] }
+uuid = { version = "1.19.0", features = ["serde", "v7"] }
+chrono = { version = "0.4.42", features = ["serde"] }

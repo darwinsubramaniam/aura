@@ -1,0 +1,24 @@
+---
+title: Auro Data Structure
+---
+classDiagram
+    class Asset
+    Asset : +Int id [PK , NOT NULL]
+    Asset : +String name [NOT NULL]
+    Asset : +String symbol [NOT NULL]
+    Asset : +String kind [ NOT NULL ]
+    Asset : +Date createdAt [DEFAULT CURRENT_TIMESTAMP]
+    Asset : +Date updatedAt [DEFAULT CURRENT_TIMESTAMP]
+    class Fiat
+    Fiat : +Int id [PK , NOT NULL]
+    Fiat : +String name [NOT NULL]
+    Fiat : +String symbol [NOT NULL]
+    Fiat : +Date createdAt [DEFAULT CURRENT_TIMESTAMP]
+    Fiat : +Date updatedAt [DEFAULT CURRENT_TIMESTAMP]
+    class Sys_tracker
+    Sys_tracker : +Int id [PK , NOT NULL]
+    Sys_tracker : +String name [NOT NULL]
+    Sys_tracker : +Date last_updated_at [NOT NULL]
+    
+    
+    
