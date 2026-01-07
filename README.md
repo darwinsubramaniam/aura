@@ -16,7 +16,6 @@ Aura is a privacy-focused crypto tracking app built with Tauri, React, and TypeS
 - **Build Tool**: Vite
 - **Styling**: TailwindCSS v4, PrimeReact
 - **Language**: TypeScript
-
 ### Backend
 - **Core**: Tauri v2 (Rust)
 - **Database**: SQLite (via SQLx)
@@ -64,4 +63,3 @@ npm run tauri ios dev
 ## License
 
 [MIT](LICENSE)
-
