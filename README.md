@@ -60,3 +60,8 @@ npm run tauri ios dev
 |                                     Desktop                                     |                                     Android                                     |                                   iOS                                   |
 | :-----------------------------------------------------------------------------: | :-----------------------------------------------------------------------------: | :---------------------------------------------------------------------: |
 | <img src="docs/screenshots/desktop.png" alt="Desktop Screenshot" width="500" /> | <img src="docs/screenshots/android.png" alt="Android Screenshot" width="250" /> | <img src="docs/screenshots/ios.png" alt="iOS Screenshot" width="250" /> |
+
+## License
+
+[MIT](LICENSE)
+
