@@ -28,7 +28,9 @@ pub fn run() {
             tauri::async_runtime::block_on(async move {
                 let pool = init_db(&handle).await?;
                 let db = Db(pool);
-                fiat::FiatService::update_currencies(&db).await?;
+                if let Err(e) = fiat::FiatService::update_currencies(&db).await {
+                    eprintln!("Failed to update currencies: {}", e);
+                }
                 handle.manage(db);
                 Ok::<(), String>(())
             })?;
@@ -39,6 +41,9 @@ pub fn run() {
             fiat_command::get_available_currencies,
             fiat_command::get_all_fiat,
             fiat_ramp_command::create_fiat_ramp,
+            fiat_ramp_command::get_all_fiat_ramps,
+            fiat_ramp_command::update_fiat_ramp,
+            fiat_ramp_command::delete_fiat_ramp,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

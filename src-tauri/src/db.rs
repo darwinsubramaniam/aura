@@ -4,6 +4,12 @@ use tauri::{AppHandle, Manager};
 
 use crate::AppConfig;
 
+/// StringRowId is the primary key of the table
+pub type StringRowId = String;
+
+/// RowId is the primary key of the table
+pub type RowId = i64;
+
 pub struct Db(pub SqlitePool);
 
 pub async fn init_db(app: &AppHandle) -> Result<SqlitePool, String> {
