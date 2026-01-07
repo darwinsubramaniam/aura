@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS fiat_ramp (
-    id UUID PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     fiat_id INTEGER NOT NULL,
     fiat_amount REAL NOT NULL,
-    date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ramp_date DATE NOT NULL DEFAULT CURRENT_DATE,
     via_exchange VARCHAR(255) NOT NULL,
     kind VARCHAR(8) NOT NULL CHECK (
         kind IN ('deposit', 'withdraw')

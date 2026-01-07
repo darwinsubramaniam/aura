@@ -8,7 +8,7 @@ export interface FiatRamp {
     id: string;
     fiat_id: number;
     fiat_amount: number;
-    date: string;
+    ramp_date: string;
     via_exchange: string;
     kind: string;
     created_at: string;

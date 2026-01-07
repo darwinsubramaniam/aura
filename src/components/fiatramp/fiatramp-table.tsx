@@ -146,7 +146,7 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
                 <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
                 <Column field="fiat_symbol" sortable header="Fiat" />
                 <Column field="fiat_amount" sortable header="Fiat Amount" />
-                <Column field="date" sortable header="Date" />
+                <Column field="ramp_date" sortable header="On (Date)" />
                 <Column field="via_exchange" sortable header="Via Exchange" />
                 <Column field="kind" sortable header="Kind" />
                 <Column body={actionBodyTemplate} header="Action" style={{ textAlign: 'center' }} />
