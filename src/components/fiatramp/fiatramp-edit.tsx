@@ -20,7 +20,7 @@ export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: 
     const [fiat, setFiat] = useState<any>(fiatRamp.fiat_id); // Dropdown value
     const [fiatAmount, setFiatAmount] = useState<number>(fiatRamp.fiat_amount);
     const [fiats, setFiats] = useState<Fiat[]>([]);
-    const [date, setDate] = useState(fiatRamp.date);
+    const [rampDate, setRampDate] = useState(fiatRamp.ramp_date);
     const [viaExchange, setViaExchange] = useState(fiatRamp.via_exchange);
     const [kind, setKind] = useState(fiatRamp.kind);
 
@@ -37,7 +37,7 @@ export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: 
     useEffect(() => {
         setFiat(fiatRamp.fiat_id);
         setFiatAmount(fiatRamp.fiat_amount);
-        setDate(fiatRamp.date);
+        setRampDate(fiatRamp.ramp_date);
         setViaExchange(fiatRamp.via_exchange);
         setKind(fiatRamp.kind);
     }, [fiatRamp]);
@@ -50,7 +50,7 @@ export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: 
             id: fiatRamp.id,
             fiat_id: fiat,
             fiat_amount: fiatAmount,
-            date: date,
+            date: rampDate,
             via_exchange: viaExchange,
             kind: kind,
             created_at: fiatRamp.created_at,
@@ -115,17 +115,17 @@ export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: 
 
                 <div className="form-control w-full">
                     <label className="label" htmlFor="date">
-                        <span className="label-text">Date</span>
+                        <span className="label-text">On (Date)</span>
                     </label>
                     <Calendar
-                        value={date ? new Date(date) : null}
+                        value={rampDate ? new Date(rampDate) : null}
                         onChange={(e) => {
                             if (e.value) {
                                 const dateObj = new Date(e.value);
                                 const dateStr = dateObj.toISOString().split('T')[0];
-                                setDate(dateStr);
+                                setRampDate(dateStr);
                             } else {
-                                setDate('');
+                                setRampDate('');
                             }
                         }}
                         locale="en"

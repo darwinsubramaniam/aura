@@ -18,7 +18,7 @@ pub struct FiatRamp {
     pub id: StringRowId,
     pub fiat_id: i64,
     pub fiat_amount: f64,
-    pub date: chrono::NaiveDate,
+    pub ramp_date: chrono::NaiveDate,
     pub kind: RampKind,
     pub via_exchange: String,
     pub created_at: chrono::NaiveDateTime,
@@ -31,7 +31,7 @@ pub struct FiatRamp {
 pub struct CreateFiatRamp {
     pub fiat_id: RowId,
     pub fiat_amount: f64,
-    pub date: chrono::NaiveDate,
+    pub ramp_date: chrono::NaiveDate,
     pub via_exchange: String,
     pub kind: RampKind,
 }
@@ -56,11 +56,11 @@ impl FiatRampService {
                 .await
                 .map_err(|e| format!("failed to begin transaction: {e}"))?;
 
-        sqlx::query("INSERT INTO fiat_ramp (id, fiat_id, fiat_amount, date, via_exchange, kind) VALUES (?, ?, ?, ?, ?, ?)")
+        sqlx::query("INSERT INTO fiat_ramp (id, fiat_id, fiat_amount, ramp_date, via_exchange, kind) VALUES (?, ?, ?, ?, ?, ?)")
         .bind(&id)
         .bind(create_fiat_ramp.fiat_id)
         .bind(create_fiat_ramp.fiat_amount)
-        .bind(create_fiat_ramp.date)
+        .bind(create_fiat_ramp.ramp_date)
         .bind(create_fiat_ramp.via_exchange)
         .bind(create_fiat_ramp.kind)
         .execute(&mut *tx)
@@ -116,7 +116,7 @@ impl FiatRampService {
         let result: SqliteQueryResult = sqlx::query("UPDATE fiat_ramp SET fiat_id = ?, fiat_amount = ?, date = ?, via_exchange = ?, kind = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .bind(fiat_ramp.fiat_id)
             .bind(fiat_ramp.fiat_amount)
-            .bind(fiat_ramp.date)
+            .bind(fiat_ramp.ramp_date)
             .bind(fiat_ramp.via_exchange)
             .bind(fiat_ramp.kind)
             .bind(fiat_ramp.id)
@@ -184,7 +184,7 @@ mod tests {
         let create_fiat_ramp = CreateFiatRamp {
             fiat_id: 1,
             fiat_amount: 100.0,
-            date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };
@@ -200,7 +200,7 @@ mod tests {
             let create_fiat_ramp = CreateFiatRamp {
                 fiat_id: i,
                 fiat_amount: 100.0,
-                date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+                ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
                 via_exchange: "coinbase".to_string(),
                 kind: RampKind::Deposit,
             };
@@ -242,7 +242,7 @@ mod tests {
         let create_fiat_ramp = CreateFiatRamp {
             fiat_id: 1,
             fiat_amount: 100.0,
-            date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };
@@ -256,7 +256,7 @@ mod tests {
             id,
             fiat_id: 1,
             fiat_amount: 200.0,
-            date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
             created_at: chrono::NaiveDate::from_ymd_opt(2022, 1, 1)
@@ -279,7 +279,7 @@ mod tests {
         let create_fiat_ramp = CreateFiatRamp {
             fiat_id: 1,
             fiat_amount: 100.0,
-            date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };

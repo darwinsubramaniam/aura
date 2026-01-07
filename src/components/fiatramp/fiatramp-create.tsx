@@ -19,7 +19,7 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
     const [fiat, setFiat] = useState('');
     const [fiatAmount, setFiatAmount] = useState<number>(0.00);
     const [fiats, setFiats] = useState<Fiat[]>([]);
-    const [date, setDate] = useState('');
+    const [rampDate, setRampDate] = useState('');
     const [viaExchange, setViaExchange] = useState('');
     const [kind, setKind] = useState('deposit');
 
@@ -34,12 +34,11 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        console.log(`fiat: ${fiat}, fiatAmount: ${fiatAmount}, date: ${date}, viaExchange: ${viaExchange}`)
         await invoke('create_fiat_ramp', {
             createFiatRamp: {
                 fiat_id: parseInt(fiat),
                 fiat_amount: fiatAmount,
-                date: date,
+                ramp_date: rampDate,
                 via_exchange: viaExchange,
                 kind: kind,
             }
@@ -101,17 +100,17 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
 
                 <div className="form-control w-full">
                     <label className="label" htmlFor="date">
-                        <span className="label-text">Date</span>
+                        <span className="label-text">On (Date)</span>
                     </label>
                     <Calendar
-                        value={date ? new Date(date) : null}
+                        value={rampDate ? new Date(rampDate) : null}
                         onChange={(e) => {
                             if (e.value) {
                                 const dateObj = new Date(e.value);
                                 const dateStr = dateObj.toISOString().split('T')[0];
-                                setDate(dateStr);
+                                setRampDate(dateStr);
                             } else {
-                                setDate('');
+                                setRampDate('');
                             }
                         }}
                         locale="en"
