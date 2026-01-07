@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant User
+    box Frontend
+        participant UI
+    end
+    User->>UI: Add Fiat Ramp
+    UI->>API: Send the request to the backend
+    box Backend
+        participant API
+        participant DB
+    end
+    API->>Frankfurter API: Fetch the exchange rate
+    box External Services
+        participant Frankfurter API
+    end
+    Frankfurter API->>API: Get all the exchange rate from the supported currencies
+    API ->> API: Calculate the amount in base currency
+    API ->> DB: Store all in fiat_ramp table

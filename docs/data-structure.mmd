@@ -1,33 +1,32 @@
 ---
 title: Auro Data Structure
 ---
-classDiagram
-    class Asset
-    Asset : +TEXT id [PK , NOT NULL]
-    Asset : +TEXT name [NOT NULL]
-    Asset : +TEXT symbol [NOT NULL]
-    Asset : +TEXT kind [ NOT NULL CHECK (kind IN ('stablecoin', 'cryptocoin', 'nft')) ] 
-    Asset : +Date createdAt [DEFAULT CURRENT_TIMESTAMP]
-    Asset : +Date updatedAt [DEFAULT CURRENT_TIMESTAMP]
-    class Fiat
-    Fiat : +Int id [PK , NOT NULL AUTOINCREMENT]
-    Fiat : +String name [NOT NULL]
-    Fiat : +String symbol [NOT NULL]
-    Fiat : +Date createdAt [DEFAULT CURRENT_TIMESTAMP]
-    Fiat : +Date updatedAt [DEFAULT CURRENT_TIMESTAMP]
-    class Sys_tracker
-    Sys_tracker : +Int id [PK , NOT NULL AUTOINCREMENT]
-    Sys_tracker : +String name [NOT NULL]
-    Sys_tracker : +Date last_updated_at [NOT NULL]
-    class FiatRamp
-    FiatRamp : +String id [PK , NOT NULL]
-    FiatRamp : +Int fiat_id [NOT NULL]
-    FiatRamp : +REAL fiat_amount [NOT NULL]
-    FiatRamp : +Date ramp_date [NOT NULL DEFAULT CURRENT_DATE]
-    FiatRamp : +String via_exchange [NOT NULL]
-    FiatRamp : +String kind [ NOT NULL CHECK (kind IN ('deposit', 'withdraw')) ] 
-    FiatRamp : +TIMESTAMP createdAt [DEFAULT CURRENT_TIMESTAMP]
-    FiatRamp : +TIMESTAMP updatedAt [DEFAULT CURRENT_TIMESTAMP]
-    
+erDiagram
+    FIAT {
+        int id PK "AUTOINCREMENT"
+        text name "NOT NULL"
+        text symbol "NOT NULL" 
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+    FIAT_RAMP{
+        text id PK
+        int fiat_id FK "NOT NULL references fiat(id)"
+        real fiat_amount "NOT NULL"
+        date ramp_date "NOT NULL DEFAULT CURRENT_DATE"
+        varchar(255) via_exchange "NOT NULL"
+        varchar(8) kind " NOT NULL CHECK (kind IN ('deposit', 'withdraw')) " 
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    FIAT ||--o{ FIAT_RAMP : ramp
+
+    SYS_TRACKER {
+        int id PK "AUTOINCREMENT"
+        text name "NOT NULL"
+        timestamp last_updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
     
     

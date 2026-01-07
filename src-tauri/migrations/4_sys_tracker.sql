@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS sys_tracker (
     -- auto incrementing id as this is not only going to be used for internal tracking in userspace only - users devices
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    last_updated_at TIMESTAMP NOT NULL
+    last_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index on name
