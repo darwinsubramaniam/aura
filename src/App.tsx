@@ -1,23 +1,27 @@
 import { useState } from "react";
 import "./App.css";
-import FiatRampCreateForm from "./components/fiatramp/fiatramp-create";
-import FiatRampTable from "./components/fiatramp/fiatramp-table";
+import Sidebar from "./components/common/Sidebar";
+import { Button } from "primereact/button";
+import FiatRamp from "./components/fiatramp/fiatramp";
 
 function App() {
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleRampCreated = () => {
-    setRefreshKey(prev => prev + 1);
-  };
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
   return (
     <>
-      <div className="flex flex-row gap-4 p-4 max-w-7xl mx-auto w-full">
-        <div className="flex-none">
-          <FiatRampCreateForm onRampCreated={handleRampCreated} />
-        </div>
-        <div className="flex-grow bg-base-100 shadow-xl rounded-box p-4">
-          <FiatRampTable refreshTrigger={refreshKey} />
+      <Sidebar visible={sidebarVisible} onHide={() => setSidebarVisible(false)} />
+
+      <div className="sticky top-0 z-50 bg-base-100 p-4 shadow-sm mb-4">
+        <Button
+          icon="pi pi-bars"
+          onClick={() => setSidebarVisible(true)}
+          className="p-button-text"
+        />
+      </div>
+      <div className="flex flex-col gap-4 p-4 max-w-7xl mx-auto w-full">
+        <div className="flex-grow bg-base-100 shadow-xl rounded-box p-4 w-full">
+          <FiatRamp />
         </div>
       </div>
     </>

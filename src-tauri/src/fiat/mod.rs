@@ -1,9 +1,9 @@
 pub mod command;
-mod frankfurter_api;
-
-use serde::Serialize;
-
+pub mod frankfurter_api;
 use crate::{sys_tracker::SysTracker, utils, Db};
+use anyhow::{Context, Result};
+use serde::Serialize;
+use std::collections::HashMap;
 pub struct FiatService {}
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
@@ -13,20 +13,27 @@ pub struct Fiat {
     pub name: String,
 }
 
+#[derive(Debug, sqlx::FromRow, Serialize)]
+pub struct FiatRate {
+    pub id: i64,
+    pub base_fiat_id: i64,
+    pub date: chrono::NaiveDate,
+    pub rates: HashMap<String, f64>,
+}
+
 const FIAT_SYS_TRACKER_NAME: &str = "fiat";
 
 impl FiatService {
     // update database with supported currencies symbols and names
-    pub async fn update_currencies(db: &Db) -> Result<(), String> {
+    pub async fn update_currencies(db: &Db) -> Result<()> {
         // last updated at
         let last_updated_at = SysTracker::get_last_updated_at(FIAT_SYS_TRACKER_NAME, &db)
             .await
-            .map_err(|e| format!("failed to get last updated at: {e}"))?;
+            .context("failed to get last updated at")?;
 
         let require_update = utils::require_update(last_updated_at, chrono::Duration::hours(24));
 
         if !require_update {
-            println!("fiat table is up to date");
             return Ok(());
         }
 
@@ -35,12 +42,9 @@ impl FiatService {
         // 1. Get available currencies from Frankfurter API
         let currencies = frankfurter_api::FrankfurterApi::get_available_currencies()
             .await
-            .map_err(|e| format!("failed to get available currencies: {e}"))?;
+            .context("failed to get available currencies")?;
 
-        let mut tx =
-            db.0.begin()
-                .await
-                .map_err(|e| format!("failed to begin transaction: {e}"))?;
+        let mut tx = db.0.begin().await.context("failed to begin transaction")?;
 
         // 2. Update database with supported currencies symbols and names
         for currency in currencies {
@@ -52,17 +56,15 @@ impl FiatService {
                 .bind(current_update_at)
                 .execute(&mut *tx)
                 .await
-                .map_err(|e| format!("failed to insert into fiat table: {e}"))?;
+                .context("failed to insert into fiat table")?;
         }
 
-        tx.commit()
-            .await
-            .map_err(|e| format!("failed to commit transaction: {e}"))?;
+        tx.commit().await.context("failed to commit transaction")?;
 
         // 3. Update SysTracker
         SysTracker::update_last_updated_at(FIAT_SYS_TRACKER_NAME, &db)
             .await
-            .map_err(|e| format!("SysTracker update error: {e}"))?;
+            .context("SysTracker update error")?;
         Ok(())
     }
 
@@ -71,7 +73,7 @@ impl FiatService {
         symbol: Option<String>,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> Result<Vec<Fiat>, String> {
+    ) -> Result<Vec<Fiat>> {
         let limit = limit.unwrap_or(50);
         let offset = offset.unwrap_or(0);
         let base_query = if let Some(symbol) = symbol {
@@ -85,24 +87,33 @@ impl FiatService {
             .bind(offset)
             .fetch_all(&db.0)
             .await
-            .map_err(|e| format!("failed to get fiat by symbol: {e}"))?;
+            .context("failed to get fiat by symbol")?;
 
         Ok(fiat)
     }
 
-    pub async fn get_all_fiat(db: &Db) -> Result<Vec<Fiat>, String> {
+    pub async fn get_all_fiat(db: &Db) -> Result<Vec<Fiat>> {
         let fiat = sqlx::query_as::<_, Fiat>("SELECT * FROM fiat")
             .fetch_all(&db.0)
             .await
-            .map_err(|e| format!("failed to get all fiat: {e}"))?;
+            .context("failed to get all fiat")?;
         Ok(fiat)
     }
 
-    pub async fn get_total_count(db: &Db) -> Result<i64, String> {
+    pub async fn get_total_count(db: &Db) -> Result<i64> {
         let total_count = sqlx::query_scalar("SELECT COUNT(*) FROM fiat")
             .fetch_one(&db.0)
             .await
-            .map_err(|e| format!("failed to get total count: {e}"))?;
+            .context("failed to get total count")?;
         Ok(total_count)
+    }
+
+    pub async fn get_fiat_by_id(db: &Db, id: i64) -> Result<Fiat> {
+        let fiat = sqlx::query_as::<_, Fiat>("SELECT * FROM fiat WHERE id = ?")
+            .bind(id)
+            .fetch_one(&db.0)
+            .await
+            .context("failed to get fiat by id")?;
+        Ok(fiat)
     }
 }

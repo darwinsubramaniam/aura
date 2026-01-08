@@ -83,6 +83,7 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
     };
 
     const openEditDialog = (fiatRamp: FiatRamp) => {
+        console.log(`Editing fiat ramp ${fiatRamp}`);
         setEditingRamp(fiatRamp);
         setEditDialogVisible(true);
     };
@@ -92,11 +93,13 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
         setEditingRamp(null);
     };
 
+
     const onRampUpdated = () => {
         hideEditDialog();
         loadData();
         toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Fiat Ramp Updated', life: 3000 });
     };
+
 
     const actionBodyTemplate = (rowData: FiatRamp) => {
         return (
@@ -117,50 +120,54 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
         </div>
     );
 
-    return (
-        <Card title="Manage Fiat Ramps">
-            <Toast ref={toast} />
-            <ConfirmDialog />
-            <DataTable value={fiatRamps}
-                selectionMode="multiple"
-                lazy
-                paginator
-                first={offset}
-                rows={limit}
-                totalRecords={totalRecords}
-                onPage={onPage}
-                selection={selectedRamps}
-                onSelectionChange={(e) => {
-                    if (Array.isArray(e.value)) {
-                        setSelectedRamps(e.value as FiatRamp[]);
-                    }
-                }}
-                dataKey="id"
-                rowsPerPageOptions={[5, 10, 20]}
-                tableStyle={{ minWidth: '50rem' }}
-                emptyMessage="No fiat ramps found"
-                loading={loading}
-                loadingIcon="pi pi-spinner pi-spin"
-                header={header}
-            >
-                <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
-                <Column field="fiat_symbol" sortable header="Fiat" />
-                <Column field="fiat_amount" sortable header="Fiat Amount" />
-                <Column field="ramp_date" sortable header="On (Date)" />
-                <Column field="via_exchange" sortable header="Via Exchange" />
-                <Column field="kind" sortable header="Kind" />
-                <Column body={actionBodyTemplate} header="Action" style={{ textAlign: 'center' }} />
-            </DataTable>
 
-            <Dialog visible={editDialogVisible} style={{ width: '450px' }} header="Edit Fiat Ramp" modal className="p-fluid" onHide={hideEditDialog}>
-                {editingRamp && (
-                    <FiatRampEditForm
-                        fiatRamp={editingRamp}
-                        onRampUpdated={onRampUpdated}
-                        onCancel={hideEditDialog}
-                    />
-                )}
-            </Dialog>
-        </Card>
+    return (
+        <div >
+            <Card title="Manage Fiat Ramps">
+                <Toast ref={toast} />
+                <ConfirmDialog />
+                <DataTable value={fiatRamps}
+                    selectionMode="multiple"
+                    lazy
+                    paginator
+                    first={offset}
+                    rows={limit}
+                    totalRecords={totalRecords}
+                    onPage={onPage}
+                    selection={selectedRamps}
+                    onSelectionChange={(e) => {
+                        if (Array.isArray(e.value)) {
+                            setSelectedRamps(e.value as FiatRamp[]);
+                        }
+                    }}
+                    dataKey="id"
+                    rowsPerPageOptions={[5, 10, 20]}
+                    tableStyle={{ minWidth: '50rem' }}
+                    emptyMessage="No fiat ramps found"
+                    loading={loading}
+                    loadingIcon="pi pi-spinner pi-spin"
+                    header={header}
+                >
+                    <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
+                    <Column field="fiat_symbol" sortable header="Fiat" />
+                    <Column field="fiat_amount" sortable header="Fiat Amount" />
+                    <Column field="ramp_date" sortable header="On (Date)" />
+                    <Column field="via_exchange" sortable header="Via Exchange" />
+                    <Column field="kind" sortable header="Kind" />
+                    <Column body={actionBodyTemplate} header="Action" style={{ textAlign: 'center' }} />
+                </DataTable>
+
+                <Dialog visible={editDialogVisible} style={{ width: '450px' }} header="Edit Fiat Ramp" modal className="p-fluid" onHide={hideEditDialog}>
+                    {editingRamp && (
+                        <FiatRampEditForm
+                            fiatRamp={editingRamp}
+                            onUpdated={onRampUpdated}
+                            onCancel={hideEditDialog}
+                        />
+                    )}
+                </Dialog>
+            </Card>
+        </div>
+
     );
 }

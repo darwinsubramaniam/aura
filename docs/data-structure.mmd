@@ -28,5 +28,14 @@ erDiagram
         timestamp last_updated_at "DEFAULT CURRENT_TIMESTAMP"
     }
 
+    FIAT_RATE{
+        int id PK "AUTOINCREMENT"
+        int base_fiat_id FK "NOT NULL references fiat(id)"
+        date date "NOT NULL"
+        text rates "NOT NULL JSON_TEXT({symbol::text: rate::real})"
+        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
+        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
     
     
