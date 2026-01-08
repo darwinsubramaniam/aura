@@ -6,15 +6,15 @@ import { Dropdown } from 'primereact/dropdown';
 import { InputNumber } from 'primereact/inputnumber';
 import { useNotification } from '../common/NotificationProvider';
 import { Card } from "primereact/card";
-import { Fiat, FiatRamp } from './fiatramp.model';
+import { Fiat, Funding } from './fiatramp.model';
 
-interface FiatRampEditFormProps {
-    fiatRamp: FiatRamp;
+interface FundingEditFormProps {
+    fiatRamp: Funding;
     onUpdated?: () => void;
     onCancel?: () => void;
 }
 
-export default function FiatRampEditForm({ fiatRamp, onUpdated, onCancel }: FiatRampEditFormProps) {
+export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: FundingEditFormProps) {
     const { showSuccess, showError } = useNotification();
     // Initialize state with props
     const [fiat, setFiat] = useState<any>(fiatRamp.fiat_id); // Dropdown value
@@ -57,22 +57,20 @@ export default function FiatRampEditForm({ fiatRamp, onUpdated, onCancel }: Fiat
             updated_at: fiatRamp.updated_at
         };
 
-        console.log(`Updating fiat ramp ${JSON.stringify(updatedRamp)}`);
-
         await invoke('update_fiat_ramp', {
             fiatRamp: updatedRamp
         }).then(() => {
-            showSuccess('Fiat ramp updated successfully');
+            showSuccess('Funding updated successfully');
             if (onUpdated) {
                 onUpdated();
             }
         }).catch((error) => {
-            showError(`Failed to update fiat ramp: ${error}`);
+            showError(`Failed to update funding: ${error}`);
         });
     }
 
     return (
-        <Card title={`Edit Fiat Ramp`}>
+        <Card title={`Edit Funding`}>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 shadow-xl rounded-box">
                 <div className="form-control w-full">
                     <label className="label" htmlFor="kind">

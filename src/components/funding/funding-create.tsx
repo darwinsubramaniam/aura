@@ -10,12 +10,12 @@ import { Fiat } from './fiatramp.model';
 
 // Removed local Fiat interface
 
-interface FiatRampCreateFormProps {
+interface FundingCreateFormProps {
     onCancel?: () => void;
     onCreate?: () => void;
 }
 
-export default function FiatRampCreateForm({ onCancel, onCreate }: FiatRampCreateFormProps) {
+export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateFormProps) {
     const { showSuccess, showError } = useNotification();
     const [fiat, setFiat] = useState('');
     const [fiatAmount, setFiatAmount] = useState<number>(0.00);
@@ -44,12 +44,12 @@ export default function FiatRampCreateForm({ onCancel, onCreate }: FiatRampCreat
                 kind: kind,
             }
         }).then(() => {
-            showSuccess('Fiat ramp created successfully');
+            showSuccess('Funding created successfully');
             if (onCreate) {
                 onCreate();
             }
         }).catch((error) => {
-            showError(`Failed to create fiat ramp: ${error}`);
+            showError(`Failed to create funding: ${error}`);
         });
     }
 
@@ -101,7 +101,7 @@ export default function FiatRampCreateForm({ onCancel, onCreate }: FiatRampCreat
 
                 <div className="form-control w-full">
                     <label className="label" htmlFor="date">
-                        <span className="label-text">On (Date)</span>
+                        <span className="label-text">Funding Date</span>
                     </label>
                     <Calendar
                         value={rampDate ? new Date(rampDate) : null}

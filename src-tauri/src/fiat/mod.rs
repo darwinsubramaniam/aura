@@ -116,4 +116,13 @@ impl FiatService {
             .context("failed to get fiat by id")?;
         Ok(fiat)
     }
+
+    pub async fn get_fiat_by_symbol(db: &Db, symbol: &str) -> Result<Fiat> {
+        let fiat = sqlx::query_as::<_, Fiat>("SELECT * FROM fiat WHERE symbol = ?")
+            .bind(symbol)
+            .fetch_one(&db.0)
+            .await
+            .context("failed to get fiat by symbol")?;
+        Ok(fiat)
+    }
 }

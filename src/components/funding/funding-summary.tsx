@@ -2,7 +2,7 @@ import { Card } from "primereact/card";
 import * as echarts from 'echarts';
 import { useEffect, useRef } from "react";
 
-export default function FiatRampSummary() {
+export default function FundingSummary() {
     const summaryChartRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -10,7 +10,7 @@ export default function FiatRampSummary() {
             const chart = echarts.init(summaryChartRef.current);
             chart.setOption({
                 title: {
-                    text: 'Fiat Ramp Summary',
+                    text: 'Funding Summary',
                     textStyle: {
                         color: '#ffffff'
                     }
@@ -33,7 +33,7 @@ export default function FiatRampSummary() {
     }, []);
 
     return (
-        <Card title="Fiat Ramp Summary">
+        <Card title="Funding Summary">
             <div ref={summaryChartRef} style={{ width: '100%', height: '400px' }}></div>
         </Card>
     );

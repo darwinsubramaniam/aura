@@ -3,12 +3,14 @@ mod fiat;
 mod fiat_ramp;
 mod fiat_rate;
 mod sys_tracker;
+mod user_settings;
 mod utils;
 
 use crate::db::{init_db, Db};
 use fiat::command as fiat_command;
 use fiat_ramp::command as fiat_ramp_command;
 use tauri::Manager;
+use user_settings::command as user_settings_command;
 
 #[derive(Default)]
 pub struct AppConfig {
@@ -45,6 +47,8 @@ pub fn run() {
             fiat_ramp_command::get_all_fiat_ramps,
             fiat_ramp_command::update_fiat_ramp,
             fiat_ramp_command::delete_fiat_ramp,
+            user_settings_command::get_user_settings,
+            user_settings_command::update_user_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

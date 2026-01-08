@@ -2,7 +2,7 @@ pub mod command;
 use crate::db::{Db, RowId, StringRowId};
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, sqlite::SqliteQueryResult};
-use std::str::FromStr;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::Type)]
@@ -40,6 +40,14 @@ pub struct CreateFiatRamp {
 pub struct FiatRampPagination {
     pub total_count: i64,
     pub fiat_ramps: Vec<FiatRamp>,
+}
+
+pub struct FiatRampSummary {
+    pub total_deposit: f64,
+    pub total_withdraw: f64,
+    pub fiat_symbol: String,
+    pub fiat_name: String,
+    pub data: HashMap<String, f64>,
 }
 
 pub struct FiatRampService {}

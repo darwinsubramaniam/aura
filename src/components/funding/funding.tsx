@@ -1,12 +1,12 @@
 import { Dialog } from "primereact/dialog";
-import FiatRampTable from "./fiatramp-table";
+import FundingTable from "./funding-table";
 import { useState } from "react";
-import FiatRampCreateForm from "./fiatramp-create";
+import FundingCreateForm from "./funding-create";
 import { Button } from "primereact/button";
 import { Toolbar } from "primereact/toolbar"
-import FiatRampSummary from "./fiatramp-summary";
+import FundingSummary from "./funding-summary";
 
-export default function FiatRamp() {
+export default function Funding() {
     const [createDialogVisible, setCreateDialogVisible] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -24,7 +24,7 @@ export default function FiatRamp() {
                 <Button
                     onClick={() => setCreateDialogVisible(true)}
                     icon="pi pi-plus"
-                    label="Add Fiat Ramp"
+                    label="Deposit/Withdraw"
                     raised
                 />
             </div>
@@ -36,11 +36,11 @@ export default function FiatRamp() {
         <div>
             <Toolbar className="mb-4" start={startToolbarTemplate} />
             <div className="mb-4">
-                <FiatRampSummary />
+                <FundingSummary />
             </div>
-            <FiatRampTable refreshTrigger={refreshTrigger} />
-            <Dialog header="Create Fiat Ramp" visible={createDialogVisible} onHide={onCancelCreate}>
-                <FiatRampCreateForm onCancel={onCancelCreate} onCreate={onCreated} />
+            <FundingTable refreshTrigger={refreshTrigger} />
+            <Dialog header="Deposit or Withdraw Fund" visible={createDialogVisible} onHide={onCancelCreate}>
+                <FundingCreateForm onCancel={onCancelCreate} onCreate={onCreated} />
             </Dialog>
 
         </div>

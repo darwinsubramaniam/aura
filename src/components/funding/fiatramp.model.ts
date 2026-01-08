@@ -4,7 +4,7 @@ export interface Fiat {
     name: string;
 }
 
-export interface FiatRamp {
+export interface Funding {
     id: string;
     fiat_id: number;
     fiat_amount: number;
@@ -15,7 +15,7 @@ export interface FiatRamp {
     updated_at: string;
 }
 
-export interface FiatRampPagination {
+export interface FundingPagination {
     total_count: number;
-    fiat_ramps: FiatRamp[];
+    fiat_ramps: Funding[];
 }
