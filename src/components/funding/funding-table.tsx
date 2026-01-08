@@ -10,29 +10,29 @@ import { IconField } from 'primereact/iconfield';
 import { InputIcon } from 'primereact/inputicon';
 import { Card } from 'primereact/card';
 import { Dialog } from 'primereact/dialog';
-import FiatRampEditForm from './fiatramp-edit';
-import { FiatRamp, FiatRampPagination } from './fiatramp.model';
+import FundingEditForm from './funding-edit';
+import { Funding, FundingPagination } from './fiatramp.model';
 
-interface FiatRampTableProps {
+interface FundingTableProps {
     refreshTrigger?: number;
 }
 
-export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
+export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     const [offset, setOffset] = useState(0);
     const [limit, setLimit] = useState(5);
-    const [fiatRamps, setFiatRamps] = useState<FiatRamp[]>([]);
-    const [selectedRamps, setSelectedRamps] = useState<FiatRamp[]>([]);
+    const [funding, setFunding] = useState<Funding[]>([]);
+    const [selectedFunding, setSelectedFunding] = useState<Funding[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
     const [loading, setLoading] = useState(true);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [editDialogVisible, setEditDialogVisible] = useState(false);
-    const [editingRamp, setEditingRamp] = useState<FiatRamp | null>(null);
+    const [editingFunding, setEditingFunding] = useState<Funding | null>(null);
     const toast = useRef<Toast>(null);
 
     const loadData = useCallback(() => {
         setLoading(true);
-        invoke<FiatRampPagination>('get_all_fiat_ramps', { limit: limit, offset: offset, query: globalFilter }).then((res) => {
-            setFiatRamps(res.fiat_ramps);
+        invoke<FundingPagination>('get_all_fiat_ramps', { limit: limit, offset: offset, query: globalFilter }).then((res) => {
+            setFunding(res.fiat_ramps);
             setTotalRecords(res.total_count);
             setLoading(false);
         });
@@ -54,54 +54,54 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
     };
 
     const deleteSelectedRamps = () => {
-        if (selectedRamps.length === 0) return;
+        if (selectedFunding.length === 0) return;
 
-        const promises = selectedRamps.map((ramp) => invoke('delete_fiat_ramp', { id: ramp.id }));
+        const promises = selectedFunding.map((ramp) => invoke('delete_fiat_ramp', { id: ramp.id }));
         Promise.all(promises).then(() => {
             loadData();
-            setSelectedRamps([]);
+            setSelectedFunding([]);
             toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Products Deleted', life: 3000 });
         });
     };
 
     const confirmDeleteSelected = () => {
         confirmDialog({
-            message: 'Are you sure you want to delete the selected products?',
+            message: 'Are you sure you want to delete the selected funding?',
             header: 'Confirmation',
             icon: 'pi pi-exclamation-triangle',
             accept: deleteSelectedRamps
         });
     };
 
-    const confirmDeleteFiatRamp = (fiatRamp: FiatRamp) => {
+    const confirmDeleteFiatRamp = (fiatRamp: Funding) => {
         confirmDialog({
-            message: 'Are you sure you want to delete ' + fiatRamp.id + '?',
+            message: 'Are you sure you want to delete this funding?',
             header: 'Confirmation',
             icon: 'pi pi-exclamation-triangle',
             accept: () => deleteFiatRamp(fiatRamp.id)
         });
     };
 
-    const openEditDialog = (fiatRamp: FiatRamp) => {
-        console.log(`Editing fiat ramp ${fiatRamp}`);
-        setEditingRamp(fiatRamp);
+    const openEditDialog = (fiatRamp: Funding) => {
+        console.log(`Editing funding ${fiatRamp}`);
+        setEditingFunding(fiatRamp);
         setEditDialogVisible(true);
     };
 
     const hideEditDialog = () => {
         setEditDialogVisible(false);
-        setEditingRamp(null);
+        setEditingFunding(null);
     };
 
 
     const onRampUpdated = () => {
         hideEditDialog();
         loadData();
-        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Fiat Ramp Updated', life: 3000 });
+        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Funding Updated', life: 3000 });
     };
 
 
-    const actionBodyTemplate = (rowData: FiatRamp) => {
+    const actionBodyTemplate = (rowData: Funding) => {
         return (
             <div className="flex gap-2 justify-content-center">
                 <Button icon="pi pi-pencil" rounded outlined className="mr-2" onClick={() => openEditDialog(rowData)} />
@@ -116,17 +116,17 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
                 <InputIcon className="pi pi-search" />
                 <InputText value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} placeholder="Keyword Search" />
             </IconField>
-            {selectedRamps.length > 0 && <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} />}
+            {selectedFunding.length > 0 && <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} />}
         </div>
     );
 
 
     return (
         <div >
-            <Card title="Manage Fiat Ramps">
+            <Card title="Funding History">
                 <Toast ref={toast} />
                 <ConfirmDialog />
-                <DataTable value={fiatRamps}
+                <DataTable value={funding}
                     selectionMode="multiple"
                     lazy
                     paginator
@@ -134,10 +134,10 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
                     rows={limit}
                     totalRecords={totalRecords}
                     onPage={onPage}
-                    selection={selectedRamps}
+                    selection={selectedFunding}
                     onSelectionChange={(e) => {
                         if (Array.isArray(e.value)) {
-                            setSelectedRamps(e.value as FiatRamp[]);
+                            setSelectedFunding(e.value as Funding[]);
                         }
                     }}
                     dataKey="id"
@@ -157,10 +157,10 @@ export default function FiatRampTable({ refreshTrigger }: FiatRampTableProps) {
                     <Column body={actionBodyTemplate} header="Action" style={{ textAlign: 'center' }} />
                 </DataTable>
 
-                <Dialog visible={editDialogVisible} style={{ width: '450px' }} header="Edit Fiat Ramp" modal className="p-fluid" onHide={hideEditDialog}>
-                    {editingRamp && (
-                        <FiatRampEditForm
-                            fiatRamp={editingRamp}
+                <Dialog visible={editDialogVisible} style={{ width: '450px' }} header="Edit Funding" modal className="p-fluid" onHide={hideEditDialog}>
+                    {editingFunding && (
+                        <FundingEditForm
+                            fiatRamp={editingFunding}
                             onUpdated={onRampUpdated}
                             onCancel={hideEditDialog}
                         />
