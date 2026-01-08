@@ -12,7 +12,7 @@ function App() {
     <>
       <Sidebar visible={sidebarVisible} onHide={() => setSidebarVisible(false)} />
 
-      <div className="sticky top-0 z-50 bg-base-100 p-4 shadow-sm mb-4">
+      <div className="sticky top-0 z-50 bg-base-100 p-4 shadow-sm">
         <Button
           icon="pi pi-bars"
           onClick={() => setSidebarVisible(true)}
