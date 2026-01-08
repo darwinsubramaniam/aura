@@ -11,10 +11,11 @@ import { Fiat } from './fiatramp.model';
 // Removed local Fiat interface
 
 interface FiatRampCreateFormProps {
-    onRampCreated?: () => void;
+    onCancel?: () => void;
+    onCreate?: () => void;
 }
 
-export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateFormProps) {
+export default function FiatRampCreateForm({ onCancel, onCreate }: FiatRampCreateFormProps) {
     const { showSuccess, showError } = useNotification();
     const [fiat, setFiat] = useState('');
     const [fiatAmount, setFiatAmount] = useState<number>(0.00);
@@ -44,8 +45,8 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
             }
         }).then(() => {
             showSuccess('Fiat ramp created successfully');
-            if (onRampCreated) {
-                onRampCreated();
+            if (onCreate) {
+                onCreate();
             }
         }).catch((error) => {
             showError(`Failed to create fiat ramp: ${error}`);
@@ -55,8 +56,8 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
 
     // TODO: fiat , fiat amount , date , via exchange
     return (
-        <Card title={`Create Fiat Ramp ${kind.charAt(0).toUpperCase() + kind.slice(1)}`}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 shadow-xl rounded-box">
+        <Card>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 rounded-box">
                 <div className="form-control w-full">
                     <label className="label" htmlFor="kind">
                         <span className="label-text">Kind</span>
@@ -143,6 +144,7 @@ export default function FiatRampCreateForm({ onRampCreated }: FiatRampCreateForm
                 </div>
 
                 <Button type="submit" label="Submit" icon="pi pi-check" />
+                <Button type="button" label="Cancel" icon="pi pi-times" onClick={onCancel} />
             </form>
         </Card>
     );

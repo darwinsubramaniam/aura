@@ -113,7 +113,7 @@ impl FiatRampService {
                 .await
                 .map_err(|e| format!("failed to begin transaction: {e}"))?;
 
-        let result: SqliteQueryResult = sqlx::query("UPDATE fiat_ramp SET fiat_id = ?, fiat_amount = ?, date = ?, via_exchange = ?, kind = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+        let result: SqliteQueryResult = sqlx::query("UPDATE fiat_ramp SET fiat_id = ?, fiat_amount = ?, ramp_date = ?, via_exchange = ?, kind = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .bind(fiat_ramp.fiat_id)
             .bind(fiat_ramp.fiat_amount)
             .bind(fiat_ramp.ramp_date)

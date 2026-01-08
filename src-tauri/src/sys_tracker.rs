@@ -1,13 +1,10 @@
 use crate::db::Db;
+use anyhow::{Context, Result};
 use sqlx::Row;
-
 pub struct SysTracker {}
 
 impl SysTracker {
-    pub async fn get_last_updated_at(
-        name: &str,
-        db: &Db,
-    ) -> Result<Option<chrono::NaiveDateTime>, String> {
+    pub async fn get_last_updated_at(name: &str, db: &Db) -> Result<Option<chrono::NaiveDateTime>> {
         // check if table exists in the sys_tracker table
         let last_updated_at = sqlx::query("SELECT last_updated_at FROM sys_tracker WHERE name=?")
             .bind(name)
@@ -22,13 +19,13 @@ impl SysTracker {
         Ok(Some(last_updated_at))
     }
 
-    pub async fn update_last_updated_at(name: &str, db: &Db) -> Result<(), String> {
+    pub async fn update_last_updated_at(name: &str, db: &Db) -> Result<()> {
         sqlx::query("INSERT OR REPLACE INTO sys_tracker (name, last_updated_at) VALUES (?, ?)")
             .bind(name)
             .bind(chrono::Local::now().naive_local())
             .execute(&db.0)
             .await
-            .map_err(|e| format!("failed to update last updated at: {e}"))?;
+            .context("failed to update last updated at")?;
         Ok(())
     }
 }
@@ -47,14 +44,15 @@ mod tests {
             .max_connections(1)
             .connect_with(SqliteConnectOptions::new().in_memory(true))
             .await
-            .expect("Failed to create in-memory database");
+            .context("failed to create in-memory database")
+            .unwrap();
 
         let db = Db(pool);
         // create sys_tracker table
         sqlx::query("CREATE TABLE IF NOT EXISTS sys_tracker (id TEXT PRIMARY KEY, table_name TEXT NOT NULL, last_updated_at TIMESTAMP NOT NULL)")
             .execute(&db.0)
             .await
-            .map_err(|e| format!("failed to create sys_tracker table: {e}"))
+            .context("failed to create sys_tracker table")
             .unwrap();
 
         // create some data into sys_tracker table
@@ -66,7 +64,7 @@ mod tests {
             .bind(less_than_24_hours_ago)
             .execute(&db.0)
             .await
-            .map_err(|e| format!("failed to insert into sys_tracker table: {e}"))
+            .context("failed to insert into sys_tracker table")
             .unwrap();
 
         let more_than_24_hours_ago: chrono::NaiveDateTime =
@@ -77,7 +75,7 @@ mod tests {
             .bind(more_than_24_hours_ago)
             .execute(&db.0)
             .await
-            .map_err(|e| format!("failed to insert into sys_tracker table: {e}"))
+            .context("failed to insert into sys_tracker table")
             .unwrap();
 
         db

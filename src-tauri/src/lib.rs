@@ -1,6 +1,7 @@
 mod db;
 mod fiat;
 mod fiat_ramp;
+mod fiat_rate;
 mod sys_tracker;
 mod utils;
 

@@ -10,11 +10,11 @@ import { Fiat, FiatRamp } from './fiatramp.model';
 
 interface FiatRampEditFormProps {
     fiatRamp: FiatRamp;
-    onRampUpdated?: () => void;
+    onUpdated?: () => void;
     onCancel?: () => void;
 }
 
-export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: FiatRampEditFormProps) {
+export default function FiatRampEditForm({ fiatRamp, onUpdated, onCancel }: FiatRampEditFormProps) {
     const { showSuccess, showError } = useNotification();
     // Initialize state with props
     const [fiat, setFiat] = useState<any>(fiatRamp.fiat_id); // Dropdown value
@@ -50,19 +50,21 @@ export default function FiatRampEditForm({ fiatRamp, onRampUpdated, onCancel }: 
             id: fiatRamp.id,
             fiat_id: fiat,
             fiat_amount: fiatAmount,
-            date: rampDate,
+            ramp_date: rampDate,
             via_exchange: viaExchange,
             kind: kind,
             created_at: fiatRamp.created_at,
             updated_at: fiatRamp.updated_at
         };
 
+        console.log(`Updating fiat ramp ${JSON.stringify(updatedRamp)}`);
+
         await invoke('update_fiat_ramp', {
             fiatRamp: updatedRamp
         }).then(() => {
             showSuccess('Fiat ramp updated successfully');
-            if (onRampUpdated) {
-                onRampUpdated();
+            if (onUpdated) {
+                onUpdated();
             }
         }).catch((error) => {
             showError(`Failed to update fiat ramp: ${error}`);
