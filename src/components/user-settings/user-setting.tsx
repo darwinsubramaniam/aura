@@ -1,82 +1,90 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Card } from "primereact/card";
-import { Dropdown } from "primereact/dropdown";
 import { useEffect, useState } from "react";
-import { UserSettings } from "./user-settings.modal";
 import { Fiat } from "../funding/fiatramp.model";
-import { Button } from "primereact/button";
 import { useNotification } from "../common/NotificationProvider";
 
-export default function UserSetting() {
-    const { showSuccess, showError } = useNotification();
-    const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-    const [fiats, setFiats] = useState<Fiat[]>([]);
-    const [oldUserSettings, setOldUserSettings] = useState<UserSettings | null>(null);
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Save } from "lucide-react";
 
-    const loadUserSettings = async () => {
-        const userSettings = await invoke<UserSettings>('get_user_settings');
-        setUserSettings(userSettings);
-    }
+interface UserSettings {
+    id: number;
+    default_fiat_id: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export default function UserSettings() {
+    const { showSuccess, showError } = useNotification();
+    const [fiats, setFiats] = useState<Fiat[]>([]);
+    const [userSettings, setUserSettings] = useState<UserSettings>({ id: 0, default_fiat_id: 0, created_at: '', updated_at: '' });
 
     const loadAllFiats = async () => {
         const fiats = await invoke<Fiat[]>('get_all_fiat');
         setFiats(fiats);
     }
 
+    const loadUserSettings = async () => {
+        const settings = await invoke<UserSettings>('get_user_settings');
+        setUserSettings(settings);
+    }
     useEffect(() => {
-        loadUserSettings();
         loadAllFiats();
+        loadUserSettings();
     }, []);
 
-
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const updateUserSettings = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (userSettings && oldUserSettings) {
-            await invoke<UserSettings>('update_user_settings', {
-                userSettings: {
-                    locale: userSettings?.locale,
-                    default_fiat_id: userSettings?.default_fiat_id,
-                }
-            }).then((updatedUserSettings: UserSettings) => {
-                console.log(`updatedUserSettings ${JSON.stringify(updatedUserSettings)}`);
-                if (updatedUserSettings) {
-                    setUserSettings(updatedUserSettings);
-                }
-                showSuccess('User settings updated successfully');
-            }).catch((error) => {
-                showError(`Failed to update user settings: ${error}`);
-            });
+        try {
+            await invoke('update_user_settings', { userSettings: { default_fiat_id: userSettings.default_fiat_id } });
+            showSuccess('User settings updated successfully');
+        } catch (error) {
+            showError(`Failed to update user settings: ${error}`);
         }
-
-        setOldUserSettings(null);
-
     }
+
+
     return (
-        <Card title="User Settings">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 shadow-xl rounded-box">
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="name">
-                        <span className="label-text">Currency</span>
-                    </label>
-                    <Dropdown
-                        id="currency"
-                        value={userSettings?.default_fiat_id}
-                        onChange={(e) => {
-                            if (userSettings) {
-                                setOldUserSettings(userSettings);
-                                setUserSettings({ ...userSettings, default_fiat_id: e.value })
-                            }
-                        }}
-                        options={fiats}
-                        optionLabel="name"
-                        optionValue="id"
-                        className="w-full"
-                    />
-                </div>
-                <div className="flex justify-end">
-                    <Button type="submit" label="Save" icon="pi pi-save" />
-                </div>
-            </form>
+        <Card>
+            <CardHeader>
+                <CardTitle>User Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={updateUserSettings} className="space-y-4">
+                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                        <Label htmlFor="defaultFiat">Default Fiat</Label>
+                        <Select
+                            value={userSettings.default_fiat_id.toString()}
+                            onValueChange={(val) => setUserSettings({ ...userSettings, default_fiat_id: parseInt(val) })}
+                        >
+                            <SelectTrigger id="defaultFiat">
+                                <SelectValue placeholder="Select default fiat" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {fiats.map((fiat) => (
+                                    <SelectItem key={fiat.id} value={fiat.id.toString()}>
+                                        {fiat.name} ({fiat.symbol})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <Button type="submit">
+                            <Save className="mr-2 h-4 w-4" /> Save
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
         </Card>
     );
 }

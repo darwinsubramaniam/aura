@@ -160,6 +160,8 @@ impl FiatRampService {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::db::Db;
     use sqlx::sqlite::SqlitePool;
