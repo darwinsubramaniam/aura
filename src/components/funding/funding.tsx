@@ -1,10 +1,11 @@
-import { Dialog } from "primereact/dialog";
-import FundingTable from "./funding-table";
 import { useState } from "react";
+import FundingTable from "./funding-table";
 import FundingCreateForm from "./funding-create";
-import { Button } from "primereact/button";
-import { Toolbar } from "primereact/toolbar"
 import FundingSummary from "./funding-summary";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 
 export default function Funding() {
     const [createDialogVisible, setCreateDialogVisible] = useState(false);
@@ -18,29 +19,28 @@ export default function Funding() {
         setCreateDialogVisible(false);
     };
 
-    const startToolbarTemplate = () => {
-        return (
-            <div className="flex justify-content-end">
-                <Button
-                    onClick={() => setCreateDialogVisible(true)}
-                    icon="pi pi-plus"
-                    label="Deposit/Withdraw"
-                    raised
-                />
-            </div>
-        );
-    };
-
-
     return (
         <div>
-            <Toolbar className="mb-4" start={startToolbarTemplate} />
+            <div className="mb-4 flex justify-end">
+                <Button
+                    onClick={() => setCreateDialogVisible(true)}
+                >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Deposit/Withdraw
+                </Button>
+            </div>
             <div className="mb-4">
                 <FundingSummary />
             </div>
             <FundingTable refreshTrigger={refreshTrigger} />
-            <Dialog header="Deposit or Withdraw Fund" visible={createDialogVisible} onHide={onCancelCreate}>
-                <FundingCreateForm onCancel={onCancelCreate} onCreate={onCreated} />
+
+            <Dialog open={createDialogVisible} onOpenChange={setCreateDialogVisible}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Deposit or Withdraw Fund</DialogTitle>
+                    </DialogHeader>
+                    <FundingCreateForm onCancel={onCancelCreate} onCreate={onCreated} />
+                </DialogContent>
             </Dialog>
 
         </div>

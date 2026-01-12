@@ -1,31 +1,50 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar";
-import { Dropdown } from 'primereact/dropdown';
-import { InputNumber } from 'primereact/inputnumber';
 import { useNotification } from '../common/NotificationProvider';
-import { Card } from "primereact/card";
-import { Fiat } from './fiatramp.model';
-
-// Removed local Fiat interface
+import { Fiat } from '../../lib/models/fiat';
+import { z } from 'zod';
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Check, X } from "lucide-react";
+import { format } from "date-fns";
+import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 
 interface FundingCreateFormProps {
     onCancel?: () => void;
     onCreate?: () => void;
 }
 
+const createFundingSchema = z.object({
+    fiat: z.string().min(1, "Fiat currency is required"),
+    fiatAmount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    rampDate: z.date(),
+    viaExchange: z.string().min(1, "Exchange is required"),
+    kind: z.enum(['deposit', 'withdraw']),
+})
+
 export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateFormProps) {
     const { showSuccess, showError } = useNotification();
-    const [fiat, setFiat] = useState('');
-    const [fiatAmount, setFiatAmount] = useState<number>(0.00);
     const [fiats, setFiats] = useState<Fiat[]>([]);
-    const [rampDate, setRampDate] = useState('');
-    const [viaExchange, setViaExchange] = useState('');
-    const [kind, setKind] = useState('deposit');
+
+    const form = useForm({
+        resolver: zodResolver(createFundingSchema),
+        defaultValues: {
+            kind: 'deposit',
+            fiatAmount: 0,
+            fiat: "",
+            viaExchange: "",
+        }
+    })
 
     const loadAllFiats = async () => {
-        const fiats = await invoke<Fiat[]>('get_all_fiat');
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 
@@ -33,119 +52,162 @@ export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateF
         loadAllFiats();
     }, []);
 
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        await invoke('create_fiat_ramp', {
-            createFiatRamp: {
-                fiat_id: parseInt(fiat),
-                fiat_amount: fiatAmount,
-                ramp_date: rampDate,
-                via_exchange: viaExchange,
-                kind: kind,
-            }
-        }).then(() => {
+    async function handleSubmit(value: z.infer<typeof createFundingSchema>) {
+        try {
+            await FiatRampCommand.create({
+                fiat_id: parseInt(value.fiat),
+                fiat_amount: value.fiatAmount,
+                ramp_date: value.rampDate,
+                via_exchange: value.viaExchange,
+                kind: value.kind
+            })
             showSuccess('Funding created successfully');
             if (onCreate) {
                 onCreate();
             }
-        }).catch((error) => {
+        }
+        catch (error) {
             showError(`Failed to create funding: ${error}`);
-        });
+        }
     }
 
-
-    // TODO: fiat , fiat amount , date , via exchange
     return (
-        <Card>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 rounded-box">
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="kind">
-                        <span className="label-text">Kind</span>
-                    </label>
-                    <Dropdown
-                        id="kind"
-                        value={kind}
-                        onChange={(e) => setKind(e.value)}
-                        options={[
-                            { name: 'Deposit', value: 'deposit' },
-                            { name: 'Withdraw', value: 'withdraw' },
-                        ]}
-                        optionLabel="name"
-                        optionValue="value"
-                        className="w-full"
-                    />
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Kind</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="shadow-sm">
+                                        <SelectValue placeholder="Select kind" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="deposit">Deposit</SelectItem>
+                                    <SelectItem value="withdraw">Withdraw</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="fiat"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Fiat</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="shadow-sm">
+                                        <SelectValue placeholder="Select fiat" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {fiats.map((fiat) => (
+                                        <SelectItem key={fiat.id} value={fiat.id.toString()}>
+                                            {fiat.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="fiatAmount"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Fiat Amount</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.01" {...field} value={field.value as number} className="shadow-sm" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="rampDate"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                            <FormLabel>On (Date)</FormLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full pl-3 text-left font-normal shadow-sm",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                        >
+                                            {field.value ? (
+                                                format(field.value, "PPP")
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="viaExchange"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Via Exchange</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="shadow-sm">
+                                        <SelectValue placeholder="Select Exchange" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="binance">Binance</SelectItem>
+                                    <SelectItem value="coinbase">Coinbase</SelectItem>
+                                    <SelectItem value="ftx">FTX</SelectItem>
+                                    <SelectItem value="kraken">Kraken</SelectItem>
+                                    <SelectItem value="uphold">Uphold</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <div className="flex justify-end gap-2">
+                    <Button type="button" variant="secondary" onClick={onCancel}>
+                        <X className="mr-2 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button type="submit">
+                        <Check className="mr-2 h-4 w-4" /> Create
+                    </Button>
                 </div>
-
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="fiat">
-                        <span className="label-text">Fiat</span>
-                    </label>
-                    <Dropdown
-                        id="fiat"
-                        value={fiat}
-                        onChange={(e) => setFiat(e.value)}
-                        options={fiats}
-                        optionLabel="name"
-                        optionValue="id"
-                        className="w-full"
-                        placeholder="Select Fiat"
-                    />
-                </div>
-
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="fiatAmount">
-                        <span className="label-text">Fiat Amount</span>
-                    </label>
-                    <InputNumber inputId="currency" value={fiatAmount} onValueChange={(e) => setFiatAmount(e.value ? e.value : 0.00)} mode="currency" currency="USD" className="w-full" />
-                </div>
-
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="date">
-                        <span className="label-text">Funding Date</span>
-                    </label>
-                    <Calendar
-                        value={rampDate ? new Date(rampDate) : null}
-                        onChange={(e) => {
-                            if (e.value) {
-                                const dateObj = new Date(e.value);
-                                const dateStr = dateObj.toISOString().split('T')[0];
-                                setRampDate(dateStr);
-                            } else {
-                                setRampDate('');
-                            }
-                        }}
-                        locale="en"
-                        dateFormat="yy-mm-dd"
-                        showIcon
-                        className="w-full"
-                    />
-                </div>
-
-
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="viaExchange">
-                        <span className="label-text">Via Exchange</span>
-                    </label>
-                    <Dropdown
-                        id="viaExchange"
-                        value={viaExchange}
-                        onChange={(e) => setViaExchange(e.value)}
-                        options={[
-                            { name: 'Binance', value: 'binance' },
-                            { name: 'Coinbase', value: 'coinbase' },
-                            { name: 'FTX', value: 'ftx' },
-                            { name: 'Kraken', value: 'kraken' },
-                            { name: 'Uphold', value: 'uphold' },
-                        ]}
-                        optionLabel="name"
-                        optionValue="value"
-                        className="w-full"
-                    />
-                </div>
-
-                <Button type="submit" label="Submit" icon="pi pi-check" />
-                <Button type="button" label="Cancel" icon="pi pi-times" onClick={onCancel} />
             </form>
-        </Card>
+        </Form>
     );
 }

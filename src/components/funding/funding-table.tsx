@@ -1,173 +1,268 @@
-import { DataTable, DataTablePageEvent } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { InputText } from 'primereact/inputtext';
-import { Button } from 'primereact/button';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import { Toast } from 'primereact/toast';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { IconField } from 'primereact/iconfield';
-import { InputIcon } from 'primereact/inputicon';
-import { Card } from 'primereact/card';
-import { Dialog } from 'primereact/dialog';
 import FundingEditForm from './funding-edit';
-import { Funding, FundingPagination } from './fiatramp.model';
+
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { ColumnDef, PaginationState, RowSelectionState, SortingState } from "@tanstack/react-table"
+import { DataTable } from "@/components/ui/data-table"
+import { ArrowUpDown, Pencil, Trash } from "lucide-react"
+import { toast } from "sonner";
+import { FiatRamp } from '@/lib/models/fiatRamp';
+import { FiatRampCommand } from '@/lib/services/funding/fiatRamp.command';
+
 
 interface FundingTableProps {
     refreshTrigger?: number;
 }
 
 export default function FundingTable({ refreshTrigger }: FundingTableProps) {
-    const [offset, setOffset] = useState(0);
-    const [limit, setLimit] = useState(5);
-    const [funding, setFunding] = useState<Funding[]>([]);
-    const [selectedFunding, setSelectedFunding] = useState<Funding[]>([]);
+    const [pagination, setPagination] = useState<PaginationState>({
+        pageIndex: 0,
+        pageSize: 5,
+    })
+    const [sorting, setSorting] = useState<SortingState>([])
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+    const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    const [funding, setFunding] = useState<FiatRamp[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [globalFilter, setGlobalFilter] = useState<string>('');
+
     const [editDialogVisible, setEditDialogVisible] = useState(false);
-    const [editingFunding, setEditingFunding] = useState<Funding | null>(null);
-    const toast = useRef<Toast>(null);
+    const [editingFunding, setEditingFunding] = useState<FiatRamp | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<FiatRamp | null>(null);
+    const [deleteSelectedDialogOpen, setDeleteSelectedDialogOpen] = useState(false);
 
     const loadData = useCallback(() => {
         setLoading(true);
-        invoke<FundingPagination>('get_all_fiat_ramps', { limit: limit, offset: offset, query: globalFilter }).then((res) => {
-            setFunding(res.fiat_ramps);
-            setTotalRecords(res.total_count);
-            setLoading(false);
-        });
-    }, [limit, offset, globalFilter]);
+        const offset = pagination.pageIndex * pagination.pageSize;
+        FiatRampCommand.get(pagination.pageSize, offset, globalFilter)
+            .then((res) => {
+                setFunding(res.fiat_ramps);
+                setTotalRecords(res.total_count);
+                setLoading(false);
+            });
+    }, [pagination.pageIndex, pagination.pageSize, globalFilter]);
 
     useEffect(() => {
         loadData();
     }, [loadData, refreshTrigger]);
 
-    const onPage = (event: DataTablePageEvent) => {
-        setOffset(event.first);
-        setLimit(event.rows);
-    };
-
     const deleteFiatRamp = (id: string) => {
         invoke('delete_fiat_ramp', { id }).then(() => {
+            toast.success("Funding deleted successfully");
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
             loadData();
         });
     };
 
     const deleteSelectedRamps = () => {
-        if (selectedFunding.length === 0) return;
+        const selectedIds = Object.keys(rowSelection).filter(key => rowSelection[key]);
+        if (selectedIds.length === 0) return;
 
-        const promises = selectedFunding.map((ramp) => invoke('delete_fiat_ramp', { id: ramp.id }));
+        const promises = selectedIds.map((id) => invoke('delete_fiat_ramp', { id }));
         Promise.all(promises).then(() => {
+            toast.success("Selected products deleted");
+            setDeleteSelectedDialogOpen(false);
+            setRowSelection({});
             loadData();
-            setSelectedFunding([]);
-            toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Products Deleted', life: 3000 });
         });
     };
 
-    const confirmDeleteSelected = () => {
-        confirmDialog({
-            message: 'Are you sure you want to delete the selected funding?',
-            header: 'Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            accept: deleteSelectedRamps
-        });
+    const confirmDeleteFiatRamp = (fiatRamp: FiatRamp) => {
+        setItemToDelete(fiatRamp);
+        setDeleteDialogOpen(true);
     };
 
-    const confirmDeleteFiatRamp = (fiatRamp: Funding) => {
-        confirmDialog({
-            message: 'Are you sure you want to delete this funding?',
-            header: 'Confirmation',
-            icon: 'pi pi-exclamation-triangle',
-            accept: () => deleteFiatRamp(fiatRamp.id)
-        });
-    };
-
-    const openEditDialog = (fiatRamp: Funding) => {
-        console.log(`Editing funding ${fiatRamp}`);
+    const openEditDialog = (fiatRamp: FiatRamp) => {
         setEditingFunding(fiatRamp);
         setEditDialogVisible(true);
     };
 
-    const hideEditDialog = () => {
+    const onRampUpdated = () => {
         setEditDialogVisible(false);
         setEditingFunding(null);
-    };
-
-
-    const onRampUpdated = () => {
-        hideEditDialog();
         loadData();
-        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Funding Updated', life: 3000 });
+        toast.success("Funding Updated");
     };
 
 
-    const actionBodyTemplate = (rowData: Funding) => {
-        return (
-            <div className="flex gap-2 justify-content-center">
-                <Button icon="pi pi-pencil" rounded outlined className="mr-2" onClick={() => openEditDialog(rowData)} />
-                <Button icon="pi pi-trash" rounded outlined severity="danger" onClick={() => confirmDeleteFiatRamp(rowData)} />
-            </div>
-        );
-    };
+    const columns: ColumnDef<FiatRamp>[] = useMemo(
+        () => [
+            {
+                id: "select",
+                header: ({ table }) => (
+                    <Checkbox
+                        checked={
+                            table.getIsAllPageRowsSelected() ||
+                            (table.getIsSomePageRowsSelected() && "indeterminate")
+                        }
+                        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                        aria-label="Select all"
+                    />
+                ),
+                cell: ({ row }) => (
+                    <Checkbox
+                        checked={row.getIsSelected()}
+                        onCheckedChange={(value) => row.toggleSelected(!!value)}
+                        aria-label="Select row"
+                    />
+                ),
+                enableSorting: false,
+                enableHiding: false,
+            },
+            {
+                accessorKey: "fiat_symbol",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        >
+                            Fiat
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
+            },
+            {
+                accessorKey: "fiat_amount",
+                header: "Fiat Amount",
+                cell: ({ row }) => {
+                    const amount = parseFloat(row.getValue("fiat_amount"))
+                    const formatted = new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                    }).format(amount)
+                    return <div className="font-medium">{formatted}</div>
+                },
+            },
+            {
+                accessorKey: "ramp_date",
+                header: "On (Date)",
+            },
+            {
+                accessorKey: "via_exchange",
+                header: "Via Exchange",
+            },
+            {
+                accessorKey: "kind",
+                header: "Kind",
+                cell: ({ row }) => {
+                    return <div className="capitalize">{row.getValue("kind")}</div>
+                },
+            },
+            {
+                id: "actions",
+                enableHiding: false,
+                cell: ({ row }) => {
+                    const payment = row.original
 
-    const header = (
-        <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-            <IconField iconPosition='left'>
-                <InputIcon className="pi pi-search" />
-                <InputText value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} placeholder="Keyword Search" />
-            </IconField>
-            {selectedFunding.length > 0 && <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} />}
-        </div>
-    );
-
+                    return (
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="icon" onClick={() => openEditDialog(payment)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon" className="text-destructive hover:text-destructive" onClick={() => confirmDeleteFiatRamp(payment)}>
+                                <Trash className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )
+                },
+            },
+        ],
+        []
+    )
 
     return (
-        <div >
-            <Card title="Funding History">
-                <Toast ref={toast} />
-                <ConfirmDialog />
-                <DataTable value={funding}
-                    selectionMode="multiple"
-                    lazy
-                    paginator
-                    first={offset}
-                    rows={limit}
-                    totalRecords={totalRecords}
-                    onPage={onPage}
-                    selection={selectedFunding}
-                    onSelectionChange={(e) => {
-                        if (Array.isArray(e.value)) {
-                            setSelectedFunding(e.value as Funding[]);
-                        }
-                    }}
-                    dataKey="id"
-                    rowsPerPageOptions={[5, 10, 20]}
-                    tableStyle={{ minWidth: '50rem' }}
-                    emptyMessage="No fiat ramps found"
+        <Card className='w-full'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <CardTitle>Funding History</CardTitle>
+                {Object.keys(rowSelection).length > 0 && (
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteSelectedDialogOpen(true)}>
+                        Delete Selected
+                    </Button>
+                )}
+            </CardHeader>
+            <CardContent>
+                <DataTable
+                    columns={columns}
+                    data={funding}
+                    rowCount={totalRecords}
+                    pagination={pagination}
+                    onPaginationChange={setPagination}
+                    sorting={sorting}
+                    onSortingChange={setSorting}
+                    rowSelection={rowSelection}
+                    onRowSelectionChange={setRowSelection}
                     loading={loading}
-                    loadingIcon="pi pi-spinner pi-spin"
-                    header={header}
-                >
-                    <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
-                    <Column field="fiat_symbol" sortable header="Fiat" />
-                    <Column field="fiat_amount" sortable header="Fiat Amount" />
-                    <Column field="ramp_date" sortable header="On (Date)" />
-                    <Column field="via_exchange" sortable header="Via Exchange" />
-                    <Column field="kind" sortable header="Kind" />
-                    <Column body={actionBodyTemplate} header="Action" style={{ textAlign: 'center' }} />
-                </DataTable>
+                    searchValue={globalFilter}
+                    onSearchChange={setGlobalFilter}
+                    searchKey="global" // We are doing global search
+                />
+            </CardContent>
 
-                <Dialog visible={editDialogVisible} style={{ width: '450px' }} header="Edit Funding" modal className="p-fluid" onHide={hideEditDialog}>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the funding record.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => itemToDelete && deleteFiatRamp(itemToDelete.id)}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={deleteSelectedDialogOpen} onOpenChange={setDeleteSelectedDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete all selected?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete {Object.keys(rowSelection).length} funding records.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={deleteSelectedRamps}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <Dialog open={editDialogVisible} onOpenChange={setEditDialogVisible}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Edit Funding</DialogTitle>
+                    </DialogHeader>
                     {editingFunding && (
                         <FundingEditForm
                             fiatRamp={editingFunding}
                             onUpdated={onRampUpdated}
-                            onCancel={hideEditDialog}
+                            onCancel={() => setEditDialogVisible(false)}
                         />
                     )}
-                </Dialog>
-            </Card>
-        </div>
+                </DialogContent>
+            </Dialog>
 
+        </Card>
     );
 }

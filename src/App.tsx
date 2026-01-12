@@ -1,10 +1,13 @@
 import { useState } from "react";
 import "./App.css";
 import Sidebar from "./components/common/Sidebar";
-import { Button } from "primereact/button";
 import Funding from "./components/funding/funding";
 import UserSetting from "./components/user-settings/user-setting";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ModeToggle } from "@/components/mode-toggle";
+import { PanelRightOpen } from 'lucide-react'
 
 const AppRoutes = [
   { path: "/", element: <Navigate to="/funding" replace /> },
@@ -16,18 +19,17 @@ function AppContent() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
 
   return (
-    <>
+    <ThemeProvider defaultTheme="dark">
       <Sidebar
         visible={sidebarVisible}
         onHide={() => setSidebarVisible(false)}
       />
 
       <div className="sticky top-0 z-50 bg-base-100 p-4 shadow-sm">
-        <Button
-          icon="pi pi-bars"
-          onClick={() => setSidebarVisible(true)}
-          className="p-button-text"
-        />
+        <Button onClick={() => setSidebarVisible(true)} variant="outline">
+          <PanelRightOpen />
+        </Button>
+        <ModeToggle />
       </div>
       <div className="flex flex-col gap-4 p-4 max-w-7xl mx-auto w-full">
         <div className="flex-grow bg-base-100 shadow-xl rounded-box p-4 w-full">
@@ -38,7 +40,7 @@ function AppContent() {
           </Routes>
         </div>
       </div>
-    </>
+    </ThemeProvider>
   );
 }
 

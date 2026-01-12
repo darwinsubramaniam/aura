@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useRef } from 'react';
-import { Toast } from 'primereact/toast';
+import React, { createContext, useContext } from 'react';
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 interface NotificationContextType {
     showSuccess: (message: string, summary?: string) => void;
@@ -11,27 +12,30 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const toast = useRef<Toast>(null);
 
     const showSuccess = (message: string, summary: string = 'Success') => {
-        toast.current?.show({ severity: 'success', summary, detail: message, life: 3000 });
+        toast.success(message, {
+            description: summary,
+        });
     };
 
     const showError = (message: string, summary: string = 'Error') => {
-        toast.current?.show({ severity: 'error', summary, detail: message, life: 5000 });
+        toast.error(message, {
+            description: summary,
+        });
     };
 
     const showInfo = (message: string, summary: string = 'Info') => {
-        toast.current?.show({ severity: 'info', summary, detail: message, life: 3000 });
+        toast.info(message, { description: summary });
     };
 
     const showWarn = (message: string, summary: string = 'Warning') => {
-        toast.current?.show({ severity: 'warn', summary, detail: message, life: 4000 });
+        toast.warning(message, { description: summary });
     };
 
     return (
         <NotificationContext.Provider value={{ showSuccess, showError, showInfo, showWarn }}>
-            <Toast ref={toast} />
+            <Toaster position="top-right" closeButton={true} />
             {children}
         </NotificationContext.Provider>
     );

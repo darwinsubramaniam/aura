@@ -16,7 +16,7 @@ pub enum RampKind {
 #[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct FiatRamp {
     pub id: StringRowId,
-    pub fiat_id: i64,
+    pub fiat_id: RowId,
     pub fiat_amount: f64,
     pub ramp_date: chrono::NaiveDate,
     pub kind: RampKind,
@@ -25,6 +25,16 @@ pub struct FiatRamp {
     pub updated_at: chrono::NaiveDateTime,
     #[serde(default)]
     pub fiat_symbol: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateFiatRamp {
+    pub id: StringRowId,
+    pub fiat_id: Option<RowId>,
+    pub fiat_amount: Option<f64>,
+    pub ramp_date: Option<chrono::NaiveDate>,
+    pub kind: Option<RampKind>,
+    pub via_exchange: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,10 +64,7 @@ pub struct FiatRampService {}
 
 impl FiatRampService {
     /// Create a new fiat ramp
-    pub async fn create_fiat_ramp(
-        create_fiat_ramp: CreateFiatRamp,
-        db: &Db,
-    ) -> Result<String, String> {
+    pub async fn create(create_fiat_ramp: CreateFiatRamp, db: &Db) -> Result<StringRowId, String> {
         let id = Uuid::now_v7().to_string();
         let mut tx =
             db.0.begin()
@@ -82,7 +89,7 @@ impl FiatRampService {
     }
 
     /// Get all fiat ramps
-    pub async fn get_fiat_ramp(
+    pub async fn get(
         limit: u32,
         offset: u32,
         query: Option<String>,
@@ -114,20 +121,21 @@ impl FiatRampService {
         })
     }
 
-    /// Update a fiat ramp
-    pub async fn update_fiat_ramp(fiat_ramp: FiatRamp, db: &Db) -> Result<u64, String> {
+    /// Update the fiat ramp
+    /// - returns the number of rows affected
+    pub async fn update(update_ramp: UpdateFiatRamp, db: &Db) -> Result<u64, String> {
         let mut tx =
             db.0.begin()
                 .await
                 .map_err(|e| format!("failed to begin transaction: {e}"))?;
 
         let result: SqliteQueryResult = sqlx::query("UPDATE fiat_ramp SET fiat_id = ?, fiat_amount = ?, ramp_date = ?, via_exchange = ?, kind = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(fiat_ramp.fiat_id)
-            .bind(fiat_ramp.fiat_amount)
-            .bind(fiat_ramp.ramp_date)
-            .bind(fiat_ramp.via_exchange)
-            .bind(fiat_ramp.kind)
-            .bind(fiat_ramp.id)
+            .bind(update_ramp.fiat_id)
+            .bind(update_ramp.fiat_amount)
+            .bind(update_ramp.ramp_date)
+            .bind(update_ramp.via_exchange)
+            .bind(update_ramp.kind)
+            .bind(update_ramp.id)
             .execute(&mut *tx)
             .await
             .map_err(|e| format!("failed to update fiat_ramp table: {e}"))?;
@@ -138,8 +146,9 @@ impl FiatRampService {
         Ok(result.rows_affected())
     }
 
-    /// Delete a fiat ramp
-    pub async fn delete_fiat_ramp(id: StringRowId, db: &Db) -> Result<u64, String> {
+    /// Delete the fiat ramp
+    /// - returns the number of rows affected
+    pub async fn delete(id: StringRowId, db: &Db) -> Result<u64, String> {
         let mut tx =
             db.0.begin()
                 .await
@@ -160,8 +169,13 @@ impl FiatRampService {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
-    use crate::db::Db;
+    use crate::fiat::FiatService;
+    use crate::fiat_exchanger::Currency;
+    use crate::fiat_exchanger::MockFiatExchanger;
+    use rand::prelude::*;
     use sqlx::sqlite::SqlitePool;
 
     async fn init_db() -> Db {
@@ -169,20 +183,28 @@ mod tests {
         let db = Db(pool);
 
         // create fiat table
-        sqlx::query(include_str!("../.././migrations/3_create_fiat.sql"))
-            .execute(&db.0)
+        sqlx::migrate!("./migrations")
+            .run(&db.0)
             .await
-            .map_err(|e| format!("failed to create fiat table: {e}"))
+            .map_err(|e| format!("failed to run migrations: {e}"))
             .unwrap();
 
-        // create fiat_ramp table
-        sqlx::query(include_str!(
-            "../.././migrations/5_fiat_ramp_transaction.sql"
-        ))
-        .execute(&db.0)
-        .await
-        .map_err(|e| format!("failed to create fiat_ramp table: {e}"))
-        .unwrap();
+        let mut mock_api = MockFiatExchanger::new();
+        mock_api.expect_get_available_currencies().return_once(|| {
+            Ok(vec![
+                Currency {
+                    name: "Malaysian Ringgit".to_string(),
+                    symbol: "MYR".to_string(),
+                },
+                Currency {
+                    name: "Singapore Dollar".to_string(),
+                    symbol: "SGD".to_string(),
+                },
+            ])
+        });
+
+        let fiat_service = FiatService::new(mock_api);
+        fiat_service.update_currencies(&db).await.unwrap();
         db
     }
 
@@ -196,28 +218,28 @@ mod tests {
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };
-        let result = FiatRampService::create_fiat_ramp(create_fiat_ramp, &db).await;
+        let result = FiatRampService::create(create_fiat_ramp, &db).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_get_fiat_ramp() {
         let db = init_db().await;
-        //create a fiat ramp 11 mock data
-        for i in 1..=11 {
+        //create a fiat ramp 2 mock data
+        let mut rng = rand::rng();
+        for _ in 1..=11 {
+            let fiat_id: i64 = rng.random_range(1..=2);
             let create_fiat_ramp = CreateFiatRamp {
-                fiat_id: i,
+                fiat_id,
                 fiat_amount: 100.0,
                 ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
                 via_exchange: "coinbase".to_string(),
                 kind: RampKind::Deposit,
             };
-            let _ = FiatRampService::create_fiat_ramp(create_fiat_ramp, &db).await;
+            let _ = FiatRampService::create(create_fiat_ramp, &db).await;
         }
 
-        let result = FiatRampService::get_fiat_ramp(10, 0, None, &db)
-            .await
-            .unwrap();
+        let result = FiatRampService::get(10, 0, None, &db).await.unwrap();
         assert!(
             result.fiat_ramps.len() == 10,
             "After offset 0, expected 10 fiat ramps, got {}",
@@ -229,9 +251,7 @@ mod tests {
             result.total_count
         );
 
-        let result = FiatRampService::get_fiat_ramp(10, 10, None, &db)
-            .await
-            .unwrap();
+        let result = FiatRampService::get(10, 10, None, &db).await.unwrap();
         assert!(
             result.fiat_ramps.len() == 1,
             "After offset 10, expected 1 fiat ramp, got {}",
@@ -242,6 +262,13 @@ mod tests {
             "After offset 10, expected 11 total count, got {}",
             result.total_count
         );
+
+        assert!(result.fiat_ramps[0].fiat_symbol.is_some());
+        let symbol = result.fiat_ramps[0]
+            .fiat_symbol
+            .as_deref()
+            .expect("Fiat symbol should be present");
+        assert!(matches!(symbol, "MYR" | "SGD"));
     }
 
     #[tokio::test]
@@ -254,31 +281,29 @@ mod tests {
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };
-        let id = FiatRampService::create_fiat_ramp(create_fiat_ramp, &db)
+        let id = FiatRampService::create(create_fiat_ramp, &db)
             .await
             .unwrap();
         // assert id is kind of uuid v7
         assert!(Uuid::from_str(&id).is_ok());
 
-        let fiat_ramp = FiatRamp {
+        let update_ramp = UpdateFiatRamp {
             id,
-            fiat_id: 1,
-            fiat_amount: 200.0,
-            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
-            via_exchange: "coinbase".to_string(),
-            kind: RampKind::Deposit,
-            created_at: chrono::NaiveDate::from_ymd_opt(2022, 1, 1)
-                .unwrap()
-                .and_hms_opt(9, 10, 11)
-                .unwrap(),
-            updated_at: chrono::NaiveDate::from_ymd_opt(2022, 1, 1)
-                .unwrap()
-                .and_hms_opt(9, 10, 11)
-                .unwrap(),
-            fiat_symbol: None,
+            fiat_id: Some(1),
+            fiat_amount: Some(200.0),
+            ramp_date: Some(chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap()),
+            via_exchange: Some("coinbase".to_string()),
+            kind: Some(RampKind::Deposit),
         };
-        let result = FiatRampService::update_fiat_ramp(fiat_ramp, &db).await;
+        let result = FiatRampService::update(update_ramp, &db).await;
         assert!(result.unwrap() == 1);
+
+        // check if the update was successful
+        let result = FiatRampService::get(1, 0, None, &db).await;
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.fiat_ramps.len() == 1);
+        assert!(result.fiat_ramps[0].fiat_amount == 200.0);
     }
 
     #[tokio::test]
@@ -291,13 +316,13 @@ mod tests {
             via_exchange: "coinbase".to_string(),
             kind: RampKind::Deposit,
         };
-        let id = FiatRampService::create_fiat_ramp(create_fiat_ramp, &db)
+        let id = FiatRampService::create(create_fiat_ramp, &db)
             .await
             .unwrap();
         // assert id is kind of uuid v7
         assert!(Uuid::from_str(&id).is_ok());
 
-        let result = FiatRampService::delete_fiat_ramp(id, &db).await;
+        let result = FiatRampService::delete(id, &db).await;
         assert!(result.unwrap() == 1);
     }
 }
