@@ -1,15 +1,32 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar";
-import { Dropdown } from 'primereact/dropdown';
-import { InputNumber } from 'primereact/inputnumber';
 import { useNotification } from '../common/NotificationProvider';
-import { Card } from "primereact/card";
-import { Fiat, Funding } from './fiatramp.model';
+
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Check, X } from "lucide-react";
+import { format } from "date-fns";
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
+import { FiatRamp, UpdateFiatRamp } from "@/lib/models/fiatRamp";
+import { Fiat } from "@/lib/models/fiat";
+import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 
 interface FundingEditFormProps {
-    fiatRamp: Funding;
+    fiatRamp: FiatRamp;
     onUpdated?: () => void;
     onCancel?: () => void;
 }
@@ -17,15 +34,15 @@ interface FundingEditFormProps {
 export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: FundingEditFormProps) {
     const { showSuccess, showError } = useNotification();
     // Initialize state with props
-    const [fiat, setFiat] = useState<any>(fiatRamp.fiat_id); // Dropdown value
+    const [fiat, setFiat] = useState<string>(fiatRamp.fiat_id.toString());
     const [fiatAmount, setFiatAmount] = useState<number>(fiatRamp.fiat_amount);
     const [fiats, setFiats] = useState<Fiat[]>([]);
-    const [rampDate, setRampDate] = useState(fiatRamp.ramp_date);
+    const [rampDate, setRampDate] = useState<Date | undefined>(fiatRamp.ramp_date ? new Date(fiatRamp.ramp_date) : undefined);
     const [viaExchange, setViaExchange] = useState(fiatRamp.via_exchange);
     const [kind, setKind] = useState(fiatRamp.kind);
 
     const loadAllFiats = async () => {
-        const fiats = await invoke<Fiat[]>('get_all_fiat');
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 
@@ -33,11 +50,11 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
         loadAllFiats();
     }, []);
 
-    // Update state if prop changes (e.g. user selects different row while dialog is open, though unlikely if modal)
+    // Update state if prop changes
     useEffect(() => {
-        setFiat(fiatRamp.fiat_id);
+        setFiat(fiatRamp.fiat_id.toString());
         setFiatAmount(fiatRamp.fiat_amount);
-        setRampDate(fiatRamp.ramp_date);
+        setRampDate(fiatRamp.ramp_date ? new Date(fiatRamp.ramp_date) : undefined);
         setViaExchange(fiatRamp.via_exchange);
         setKind(fiatRamp.kind);
     }, [fiatRamp]);
@@ -46,20 +63,16 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
         e.preventDefault();
 
         // Prepare object for backend
-        const updatedRamp = {
+        const updatedRamp: UpdateFiatRamp = {
             id: fiatRamp.id,
-            fiat_id: fiat,
+            fiat_id: parseInt(fiat),
             fiat_amount: fiatAmount,
             ramp_date: rampDate,
             via_exchange: viaExchange,
             kind: kind,
-            created_at: fiatRamp.created_at,
-            updated_at: fiatRamp.updated_at
         };
 
-        await invoke('update_fiat_ramp', {
-            fiatRamp: updatedRamp
-        }).then(() => {
+        await FiatRampCommand.update(updatedRamp).then(() => {
             showSuccess('Funding updated successfully');
             if (onUpdated) {
                 onUpdated();
@@ -70,98 +83,99 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
     }
 
     return (
-        <Card title={`Edit Funding`}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 max-w-lg mx-auto bg-base-100 shadow-xl rounded-box">
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="kind">
-                        <span className="label-text">Kind</span>
-                    </label>
-                    <Dropdown
-                        id="kind"
-                        value={kind}
-                        onChange={(e) => setKind(e.value)}
-                        options={[
-                            { name: 'Deposit', value: 'deposit' },
-                            { name: 'Withdraw', value: 'withdraw' },
-                        ]}
-                        optionLabel="name"
-                        optionValue="value"
-                        className="w-full"
-                    />
-                </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="kind">Kind</Label>
+                <Select value={kind} onValueChange={(v) => setKind(v as "deposit" | "withdraw")}>
+                    <SelectTrigger id="kind" className="shadow-sm">
+                        <SelectValue placeholder="Select kind" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="deposit">Deposit</SelectItem>
+                        <SelectItem value="withdraw">Withdraw</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
 
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="fiat">
-                        <span className="label-text">Fiat</span>
-                    </label>
-                    <Dropdown
-                        id="fiat"
-                        value={fiat}
-                        onChange={(e) => setFiat(e.value)}
-                        options={fiats}
-                        optionLabel="name"
-                        optionValue="id"
-                        className="w-full"
-                        placeholder="Select Fiat"
-                    />
-                </div>
+            <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="fiat">Fiat</Label>
+                <Select value={fiat} onValueChange={setFiat}>
+                    <SelectTrigger id="fiat" className="shadow-sm">
+                        <SelectValue placeholder="Select Fiat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {fiats.map((f) => (
+                            <SelectItem key={f.id} value={f.id.toString()}>
+                                {f.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="fiatAmount">
-                        <span className="label-text">Fiat Amount</span>
-                    </label>
-                    <InputNumber inputId="currency" value={fiatAmount} onValueChange={(e) => setFiatAmount(e.value ? e.value : 0.00)} mode="currency" currency="USD" className="w-full" />
-                </div>
+            <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="fiatAmount">Fiat Amount</Label>
+                <Input
+                    type="number"
+                    id="fiatAmount"
+                    step="0.01"
+                    value={fiatAmount}
+                    onChange={(e) => setFiatAmount(parseFloat(e.target.value))}
+                    className="shadow-sm"
+                />
+            </div>
 
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="date">
-                        <span className="label-text">On (Date)</span>
-                    </label>
-                    <Calendar
-                        value={rampDate ? new Date(rampDate) : null}
-                        onChange={(e) => {
-                            if (e.value) {
-                                const dateObj = new Date(e.value);
-                                const dateStr = dateObj.toISOString().split('T')[0];
-                                setRampDate(dateStr);
-                            } else {
-                                setRampDate('');
-                            }
-                        }}
-                        locale="en"
-                        dateFormat="yy-mm-dd"
-                        showIcon
-                        className="w-full"
-                    />
-                </div>
+            <div className="grid w-full items-center gap-1.5">
+                <Label>On (Date)</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-full justify-start text-left font-normal shadow-sm",
+                                !rampDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {rampDate ? format(rampDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={rampDate}
+                            onSelect={setRampDate}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
 
+            <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="viaExchange">Via Exchange</Label>
+                <Select value={viaExchange} onValueChange={setViaExchange}>
+                    <SelectTrigger id="viaExchange" className="shadow-sm">
+                        <SelectValue placeholder="Select Exchange" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="binance">Binance</SelectItem>
+                        <SelectItem value="coinbase">Coinbase</SelectItem>
+                        <SelectItem value="ftx">FTX</SelectItem>
+                        <SelectItem value="kraken">Kraken</SelectItem>
+                        <SelectItem value="uphold">Uphold</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
 
-                <div className="form-control w-full">
-                    <label className="label" htmlFor="viaExchange">
-                        <span className="label-text">Via Exchange</span>
-                    </label>
-                    <Dropdown
-                        id="viaExchange"
-                        value={viaExchange}
-                        onChange={(e) => setViaExchange(e.value)}
-                        options={[
-                            { name: 'Binance', value: 'binance' },
-                            { name: 'Coinbase', value: 'coinbase' },
-                            { name: 'FTX', value: 'ftx' },
-                            { name: 'Kraken', value: 'kraken' },
-                            { name: 'Uphold', value: 'uphold' },
-                        ]}
-                        optionLabel="name"
-                        optionValue="value"
-                        className="w-full"
-                    />
-                </div>
-
-                <div className="flex gap-2 justify-content-end">
-                    <Button type="button" label="Cancel" icon="pi pi-times" severity="secondary" onClick={onCancel} />
-                    <Button type="submit" label="Update" icon="pi pi-check" />
-                </div>
-            </form>
-        </Card>
+            <div className="flex justify-end gap-2 mt-4">
+                <Button type="button" variant="secondary" onClick={onCancel}>
+                    <X className="mr-2 h-4 w-4" /> Cancel
+                </Button>
+                <Button type="submit">
+                    <Check className="mr-2 h-4 w-4" /> Update
+                </Button>
+            </div>
+        </form>
     );
+
 }

@@ -1,12 +1,16 @@
 mod db;
 mod fiat;
+mod fiat_exchanger;
 mod fiat_ramp;
 mod fiat_rate;
 mod sys_tracker;
 mod user_settings;
 mod utils;
 
-use crate::db::{init_db, Db};
+use crate::{
+    db::{init_db, Db},
+    fiat_exchanger::frankfurter_exchanger::FrankfurterExchangerApi,
+};
 use fiat::command as fiat_command;
 use fiat_ramp::command as fiat_ramp_command;
 use tauri::Manager;
@@ -31,7 +35,10 @@ pub fn run() {
             tauri::async_runtime::block_on(async move {
                 let pool = init_db(&handle).await?;
                 let db = Db(pool);
-                if let Err(e) = fiat::FiatService::update_currencies(&db).await {
+                if let Err(e) = fiat::FiatService::<FrankfurterExchangerApi>::default()
+                    .update_currencies(&db)
+                    .await
+                {
                     eprintln!("Failed to update currencies: {}", e);
                 }
                 handle.manage(db);
@@ -41,10 +48,10 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            fiat_command::get_available_currencies,
-            fiat_command::get_all_fiat,
+            fiat_command::get_all_currencies,
+            fiat_command::get_currencies_by_symbol,
             fiat_ramp_command::create_fiat_ramp,
-            fiat_ramp_command::get_all_fiat_ramps,
+            fiat_ramp_command::get_fiat_ramps,
             fiat_ramp_command::update_fiat_ramp,
             fiat_ramp_command::delete_fiat_ramp,
             user_settings_command::get_user_settings,

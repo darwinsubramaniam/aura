@@ -1,6 +1,13 @@
-import { Sidebar as PrimeSidebar } from 'primereact/sidebar';
-import { Button } from 'primereact/button';
 import { useNavigate } from 'react-router-dom';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { DollarSign, Settings } from 'lucide-react';
 
 interface SidebarProps {
     visible: boolean;
@@ -16,22 +23,33 @@ export default function Sidebar({ visible, onHide }: SidebarProps) {
     };
 
     return (
-        <PrimeSidebar visible={visible} onHide={onHide} className="w-full md:w-20rem lg:w-30rem">
-            <div className="flex flex-col gap-2">
-                <h2 className="text-xl font-bold mb-4 px-3">Navigation</h2>
-                <Button
-                    label="Funding History"
-                    icon="pi pi-dollar"
-                    className="p-button-text text-left justify-start"
-                    onClick={() => handleNavigate('/funding')}
-                />
-                <Button
-                    label="User Settings"
-                    icon="pi pi-cog"
-                    className="p-button-text text-left justify-start"
-                    onClick={() => handleNavigate('/user-settings')}
-                />
-            </div>
-        </PrimeSidebar>
+        <Sheet open={visible} onOpenChange={(open) => !open && onHide()}>
+            <SheetContent side="left" className="w-full md:w-[20rem] lg:w-[30rem]">
+                <SheetHeader className="mb-4 text-left">
+                    <SheetTitle>Navigation</SheetTitle>
+                    <SheetDescription className="sr-only">
+                        Main application navigation
+                    </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-col gap-2">
+                    <Button
+                        variant="ghost"
+                        className="justify-start gap-2"
+                        onClick={() => handleNavigate('/funding')}
+                    >
+                        <DollarSign className="h-4 w-4" />
+                        Funding History
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className="justify-start gap-2"
+                        onClick={() => handleNavigate('/user-settings')}
+                    >
+                        <Settings className="h-4 w-4" />
+                        User Settings
+                    </Button>
+                </div>
+            </SheetContent>
+        </Sheet>
     );
 }

@@ -77,3 +77,27 @@ fn get_db_url(app_data_dir: PathBuf, config: &AppConfig) -> String {
     let path = app_data_dir.join(format!("{}.sqlite", name));
     format!("sqlite:{}", path.to_string_lossy())
 }
+
+impl Db {
+    /// for unit test purpose only
+    pub async fn in_memory() -> Result<Db, String> {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect_with(
+                sqlx::sqlite::SqliteConnectOptions::from_str("sqlite::memory:")
+                    .map_err(|e| format!("failed to parse db url: {e}"))?
+                    .create_if_missing(true)
+                    .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal),
+            )
+            .await
+            .map_err(|e| format!("db connect error: {e}"))?;
+
+        // Apply migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .map_err(|e| format!("db migrate error: {e}"))?;
+
+        Ok(Db(pool))
+    }
+}

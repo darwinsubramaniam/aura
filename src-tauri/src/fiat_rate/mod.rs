@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-
-use crate::db::Db;
-use crate::fiat::{frankfurter_api::FrankfurterApi, FiatService};
+pub mod command;
+use crate::fiat::FiatService;
+use crate::{db::Db, fiat_exchanger::FiatExchanger};
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, sqlx::FromRow, Serialize, Deserialize)]
 pub struct FiatRate {
@@ -20,7 +20,12 @@ pub struct FiatRate {
 }
 
 // Get the rate for a specific fiat and date
-pub async fn get_rate(db: &Db, base_fiat_id: i64, date: &NaiveDate) -> Result<FiatRate> {
+pub async fn get_rate<A: FiatExchanger>(
+    db: &Db,
+    exchange_api: &A,
+    base_fiat_id: i64,
+    date: &NaiveDate,
+) -> Result<FiatRate> {
     let db_result = sqlx::query_as::<sqlx::Sqlite, FiatRate>(
         "SELECT fiat_rate.*, fiat.symbol, fiat.name FROM fiat_rate 
         JOIN fiat ON fiat_rate.base_fiat_id = fiat.id 
@@ -34,13 +39,14 @@ pub async fn get_rate(db: &Db, base_fiat_id: i64, date: &NaiveDate) -> Result<Fi
     match db_result {
         Ok(rate) => Ok(rate),
         Err(sqlx::Error::RowNotFound) => {
-            let base_fiat = FiatService::get_fiat_by_id(db, base_fiat_id)
+            let base_fiat = FiatService::<A>::get_fiat_by_id(db, base_fiat_id)
                 .await
                 .context("failed to get fiat by id")?;
             let base_symbol = base_fiat.symbol;
             let base_name = base_fiat.name;
             // forward the request to the Frankfurter API
-            let rate = FrankfurterApi::get_latest_rates(&base_symbol.as_str(), Some(date))
+            let rate = exchange_api
+                .get_latest_rates(&base_symbol.as_str(), Some(date))
                 .await
                 .context("External API :: Get Latest Rates :: Failed")?;
             // insert the rate into the database
@@ -66,8 +72,10 @@ pub async fn get_rate(db: &Db, base_fiat_id: i64, date: &NaiveDate) -> Result<Fi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::Db;
-    use crate::fiat::FiatService;
+    use crate::{
+        db::Db,
+        fiat_exchanger::{Currency, MockFiatExchanger, Rates},
+    };
     use chrono::NaiveDate;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
@@ -88,8 +96,29 @@ mod tests {
             .context("failed to create fiat_rate table")
             .unwrap();
 
+        // Mock API
+        let mut mock_api = MockFiatExchanger::new();
+        mock_api
+            .expect_get_available_currencies()
+            .times(1)
+            .returning(|| {
+                Ok(vec![
+                    Currency {
+                        name: "United States Dollar".to_string(),
+                        symbol: "USD".to_string(),
+                    },
+                    Currency {
+                        name: "Euro".to_string(),
+                        symbol: "EUR".to_string(),
+                    },
+                ])
+            });
+
         // populate fiat table
-        FiatService::update_currencies(&db).await.unwrap();
+        FiatService::<MockFiatExchanger>::new(mock_api)
+            .update_currencies(&db)
+            .await
+            .unwrap();
 
         db
     }
@@ -97,7 +126,24 @@ mod tests {
     #[tokio::test]
     async fn test_get_rate() {
         let db = setup().await;
-        let rate = get_rate(&db, 10, &NaiveDate::from_ymd_opt(2026, 2, 1).unwrap()).await;
-        assert!(!rate.is_err());
+        let mut mock_frankfurt_api = MockFiatExchanger::new();
+        mock_frankfurt_api
+            .expect_get_latest_rates()
+            .times(1)
+            .returning(|_, _| {
+                Ok(Rates {
+                    rates: HashMap::from([("EUR".to_string(), 0.85)]),
+                    base: "USD".to_string(),
+                    date: NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
+                })
+            });
+        let rate = get_rate(
+            &db,
+            &mock_frankfurt_api,
+            1,
+            &NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
+        )
+        .await;
+        assert!(rate.is_ok());
     }
 }

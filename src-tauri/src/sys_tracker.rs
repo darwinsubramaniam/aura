@@ -48,17 +48,16 @@ mod tests {
             .unwrap();
 
         let db = Db(pool);
-        // create sys_tracker table
-        sqlx::query("CREATE TABLE IF NOT EXISTS sys_tracker (id TEXT PRIMARY KEY, table_name TEXT NOT NULL, last_updated_at TIMESTAMP NOT NULL)")
-            .execute(&db.0)
+        // create sys_tracker table -- migrations
+        sqlx::migrate!("./migrations")
+            .run(&db.0)
             .await
             .context("failed to create sys_tracker table")
             .unwrap();
-
         // create some data into sys_tracker table
         let less_than_24_hours_ago: chrono::NaiveDateTime =
             chrono::Local::now().naive_local() - chrono::Duration::hours(23);
-        sqlx::query("INSERT INTO sys_tracker (id, table_name, last_updated_at) VALUES (?, ?, ?)")
+        sqlx::query("INSERT INTO sys_tracker (id, name, last_updated_at) VALUES (?, ?, ?)")
             .bind("1")
             .bind("table_updated_less_than_24_hours_ago")
             .bind(less_than_24_hours_ago)
@@ -69,7 +68,7 @@ mod tests {
 
         let more_than_24_hours_ago: chrono::NaiveDateTime =
             chrono::Local::now().naive_local() - chrono::Duration::hours(25);
-        sqlx::query("INSERT INTO sys_tracker (id, table_name, last_updated_at) VALUES (?, ?, ?)")
+        sqlx::query("INSERT INTO sys_tracker (id, name, last_updated_at) VALUES (?, ?, ?)")
             .bind("2")
             .bind("table_updated_more_than_24_hours_ago")
             .bind(more_than_24_hours_ago)
@@ -91,8 +90,6 @@ mod tests {
                 .unwrap()
                 .unwrap();
 
-        println!("last_updated_at: {last_updated_at}");
-
         // check is last_updated_at is still within 24 hours
         let now = chrono::Local::now().naive_local();
         assert!(last_updated_at > now - chrono::Duration::hours(24));
@@ -107,8 +104,6 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-
-        println!("last_updated_at: {last_updated_at}");
 
         // check if last_updated_at is more than 24 hours ago
         let now = chrono::Local::now().naive_local();
