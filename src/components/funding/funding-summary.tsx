@@ -1,15 +1,15 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ReactECharts from 'echarts-for-react';
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Fiat } from "./fiatramp.model";
+import { Fiat } from "@/lib/models/fiat";
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 
 export default function FundingSummary() {
     const [fiats, setFiats] = useState<Fiat[]>([]);
 
     const loadAllFiats = async () => {
-        const fiats = await invoke<Fiat[]>('get_all_fiat');
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 

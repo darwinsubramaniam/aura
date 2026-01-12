@@ -1,7 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { useNotification } from '../common/NotificationProvider';
-import { Fiat, Funding } from './fiatramp.model';
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,10 +20,13 @@ import {
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { format } from "date-fns";
-
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
+import { FiatRamp, UpdateFiatRamp } from "@/lib/models/fiatRamp";
+import { Fiat } from "@/lib/models/fiat";
+import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 
 interface FundingEditFormProps {
-    fiatRamp: Funding;
+    fiatRamp: FiatRamp;
     onUpdated?: () => void;
     onCancel?: () => void;
 }
@@ -41,7 +42,7 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
     const [kind, setKind] = useState(fiatRamp.kind);
 
     const loadAllFiats = async () => {
-        const fiats = await invoke<Fiat[]>('get_all_fiat');
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 
@@ -62,20 +63,16 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
         e.preventDefault();
 
         // Prepare object for backend
-        const updatedRamp = {
+        const updatedRamp: UpdateFiatRamp = {
             id: fiatRamp.id,
             fiat_id: parseInt(fiat),
             fiat_amount: fiatAmount,
-            ramp_date: rampDate ? format(rampDate, 'yyyy-MM-dd') : '',
+            ramp_date: rampDate,
             via_exchange: viaExchange,
             kind: kind,
-            created_at: fiatRamp.created_at,
-            updated_at: fiatRamp.updated_at
         };
 
-        await invoke('update_fiat_ramp', {
-            fiatRamp: updatedRamp
-        }).then(() => {
+        await FiatRampCommand.update(updatedRamp).then(() => {
             showSuccess('Funding updated successfully');
             if (onUpdated) {
                 onUpdated();
@@ -89,7 +86,7 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="kind">Kind</Label>
-                <Select value={kind} onValueChange={setKind}>
+                <Select value={kind} onValueChange={(v) => setKind(v as "deposit" | "withdraw")}>
                     <SelectTrigger id="kind" className="shadow-sm">
                         <SelectValue placeholder="Select kind" />
                     </SelectTrigger>

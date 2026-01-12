@@ -192,3 +192,23 @@
     letter-spacing: var(--tracking-normal);
   }
 }
+
+/* Success Toast Styles */
+[data-sonner-toast][data-type="success"] [data-title] {
+  @apply text-green-500;
+}
+
+/* Info Toast Styles */
+[data-sonner-toast][data-type="info"] [data-title] {
+  @apply text-blue-500;
+}
+
+/* Warning Toast Styles */
+[data-sonner-toast][data-type="warning"] [data-title] {
+  @apply text-yellow-500;
+}
+
+/* Error Toast Styles */
+[data-sonner-toast][data-type="error"] [data-title] {
+  @apply text-red-500;
+}

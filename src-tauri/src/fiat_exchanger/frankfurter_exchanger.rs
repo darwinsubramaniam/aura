@@ -1,32 +1,23 @@
+use crate::fiat_exchanger::{Currency, FiatExchanger, Rates};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri_plugin_http::reqwest;
 
 /// Frankfurter API - https://frankfurter.dev/
-pub struct FrankfurterApi;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Currency {
-    pub name: String,
-    pub symbol: String,
+pub struct FrankfurterExchangerApi {
+    base_url: String,
 }
 
-/// Fiat currency symbol
-pub type FiatSymbol = String;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LatestRates {
-    pub base: String,
-    pub date: chrono::NaiveDate,
-    pub rates: HashMap<FiatSymbol, f64>,
+impl Default for FrankfurterExchangerApi {
+    fn default() -> Self {
+        Self {
+            base_url: "https://api.frankfurter.dev".to_string(),
+        }
+    }
 }
-
-const BASE_URL: &str = "https://api.frankfurter.dev";
-
-impl FrankfurterApi {
-    pub async fn get_available_currencies() -> Result<Vec<Currency>> {
-        let response = reqwest::get(format!("{}/v1/currencies", BASE_URL))
+impl FiatExchanger for FrankfurterExchangerApi {
+    async fn get_available_currencies(&self) -> Result<Vec<Currency>> {
+        let response = reqwest::get(format!("{}/v1/currencies", self.base_url))
             .await
             .context("Failed to fetch available currencies")?;
 
@@ -50,14 +41,15 @@ impl FrankfurterApi {
         Ok(currencies)
     }
 
-    pub async fn get_latest_rates(
+    async fn get_latest_rates<'a>(
+        &self,
         base: &str,
-        date: Option<&chrono::NaiveDate>,
-    ) -> Result<LatestRates> {
+        date: Option<&'a chrono::NaiveDate>,
+    ) -> Result<Rates> {
         let url = if let Some(date) = date {
-            format!("{BASE_URL}/v1/{date}?base={base}")
+            format!("{}/v1/{date}?base={base}", self.base_url)
         } else {
-            format!("{BASE_URL}/v1/latest?base={base}")
+            format!("{}/v1/latest?base={base}", self.base_url)
         };
         let response = reqwest::get(url)
             .await
@@ -67,7 +59,7 @@ impl FrankfurterApi {
             .text()
             .await
             .context("Failed to fetch latest rates")?;
-        let response_json: LatestRates =
+        let response_json: Rates =
             serde_json::from_str(&response_text).context("Failed to fetch latest rates")?;
         Ok(response_json)
     }
@@ -78,7 +70,8 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn test_get_available_currencies() {
-        let currencies = FrankfurterApi::get_available_currencies().await.unwrap();
+        let api = FrankfurterExchangerApi::default();
+        let currencies = api.get_available_currencies().await.unwrap();
 
         // test if there is MYR in the list
         assert!(currencies.iter().any(|currency| currency.symbol == "MYR"));
@@ -89,7 +82,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_latest_rates() {
-        let rates = FrankfurterApi::get_latest_rates("MYR", None).await.unwrap();
+        let api = FrankfurterExchangerApi::default();
+        let rates = api.get_latest_rates("MYR", None).await.unwrap();
 
         assert!(!rates.date.to_string().is_empty());
 
@@ -99,12 +93,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_latest_rates_with_date() {
-        let rates = FrankfurterApi::get_latest_rates(
-            "MYR",
-            Some(&chrono::NaiveDate::from_ymd_opt(2026, 2, 1).unwrap()),
-        )
-        .await
-        .unwrap();
+        let api = FrankfurterExchangerApi::default();
+        let rates = api
+            .get_latest_rates(
+                "MYR",
+                Some(&chrono::NaiveDate::from_ymd_opt(2026, 2, 1).unwrap()),
+            )
+            .await
+            .unwrap();
 
         assert!(!rates.date.to_string().is_empty());
 

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Funding, FundingPagination } from './fiatramp.model';
 import FundingEditForm from './funding-edit';
 
 import { Button } from "@/components/ui/button"
@@ -22,6 +21,8 @@ import { ColumnDef, PaginationState, RowSelectionState, SortingState } from "@ta
 import { DataTable } from "@/components/ui/data-table"
 import { ArrowUpDown, Pencil, Trash } from "lucide-react"
 import { toast } from "sonner";
+import { FiatRamp } from '@/lib/models/fiatRamp';
+import { FiatRampCommand } from '@/lib/services/funding/fiatRamp.command';
 
 
 interface FundingTableProps {
@@ -37,30 +38,25 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    const [funding, setFunding] = useState<Funding[]>([]);
+    const [funding, setFunding] = useState<FiatRamp[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const [editDialogVisible, setEditDialogVisible] = useState(false);
-    const [editingFunding, setEditingFunding] = useState<Funding | null>(null);
+    const [editingFunding, setEditingFunding] = useState<FiatRamp | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<Funding | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<FiatRamp | null>(null);
     const [deleteSelectedDialogOpen, setDeleteSelectedDialogOpen] = useState(false);
 
     const loadData = useCallback(() => {
         setLoading(true);
-        // Note: Backend might expect 0-indexed or 1-indexed offset. 
-        // Typically offset = pageIndex * pageSize.
         const offset = pagination.pageIndex * pagination.pageSize;
-        invoke<FundingPagination>('get_all_fiat_ramps', {
-            limit: pagination.pageSize,
-            offset: offset,
-            query: globalFilter
-        }).then((res) => {
-            setFunding(res.fiat_ramps);
-            setTotalRecords(res.total_count);
-            setLoading(false);
-        });
+        FiatRampCommand.get(pagination.pageSize, offset, globalFilter)
+            .then((res) => {
+                setFunding(res.fiat_ramps);
+                setTotalRecords(res.total_count);
+                setLoading(false);
+            });
     }, [pagination.pageIndex, pagination.pageSize, globalFilter]);
 
     useEffect(() => {
@@ -89,12 +85,12 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
         });
     };
 
-    const confirmDeleteFiatRamp = (fiatRamp: Funding) => {
+    const confirmDeleteFiatRamp = (fiatRamp: FiatRamp) => {
         setItemToDelete(fiatRamp);
         setDeleteDialogOpen(true);
     };
 
-    const openEditDialog = (fiatRamp: Funding) => {
+    const openEditDialog = (fiatRamp: FiatRamp) => {
         setEditingFunding(fiatRamp);
         setEditDialogVisible(true);
     };
@@ -107,7 +103,7 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     };
 
 
-    const columns: ColumnDef<Funding>[] = useMemo(
+    const columns: ColumnDef<FiatRamp>[] = useMemo(
         () => [
             {
                 id: "select",

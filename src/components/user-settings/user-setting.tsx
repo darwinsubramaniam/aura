@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Fiat } from "../funding/fiatramp.model";
 import { useNotification } from "../common/NotificationProvider";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Save } from "lucide-react";
+import { Fiat } from "@/lib/models/fiat";
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 
 interface UserSettings {
     id: number;
@@ -28,7 +29,7 @@ export default function UserSettings() {
     const [userSettings, setUserSettings] = useState<UserSettings>({ id: 0, default_fiat_id: 0, created_at: '', updated_at: '' });
 
     const loadAllFiats = async () => {
-        const fiats = await invoke<Fiat[]>('get_all_fiat');
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 

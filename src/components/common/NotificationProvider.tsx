@@ -16,20 +16,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const showSuccess = (message: string, summary: string = 'Success') => {
         toast.success(message, {
             description: summary,
-            style: {
-                color: '#00ffcc',
-                borderColor: '#00ffcc',
-            }
         });
     };
 
     const showError = (message: string, summary: string = 'Error') => {
         toast.error(message, {
             description: summary,
-            style: {
-                color: '#ff3d00',
-                borderColor: '#ff3d00',
-            }
         });
     };
 
@@ -43,7 +35,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return (
         <NotificationContext.Provider value={{ showSuccess, showError, showInfo, showWarn }}>
-            <Toaster />
+            <Toaster position="top-right" closeButton={true} />
             {children}
         </NotificationContext.Provider>
     );

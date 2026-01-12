@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNotification } from '../common/NotificationProvider';
-import { Fiat } from './fiatramp.model';
-import FundingService from "./funding.service";
+import { Fiat } from '../../lib/models/fiat';
 import { z } from 'zod';
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -14,6 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { format } from "date-fns";
+import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
+import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 
 interface FundingCreateFormProps {
     onCancel?: () => void;
@@ -43,7 +44,7 @@ export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateF
     })
 
     const loadAllFiats = async () => {
-        const fiats = await FundingService.getAllFiats();
+        const fiats = await FiatCommand.getAllCurrencies();
         setFiats(fiats);
     }
 
@@ -53,13 +54,13 @@ export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateF
 
     async function handleSubmit(value: z.infer<typeof createFundingSchema>) {
         try {
-            await FundingService.createFiatRamp(
-                parseInt(value.fiat),
-                value.fiatAmount,
-                format(value.rampDate, 'yyyy-MM-dd'),
-                value.viaExchange,
-                value.kind
-            )
+            await FiatRampCommand.create({
+                fiat_id: parseInt(value.fiat),
+                fiat_amount: value.fiatAmount,
+                ramp_date: value.rampDate,
+                via_exchange: value.viaExchange,
+                kind: value.kind
+            })
             showSuccess('Funding created successfully');
             if (onCreate) {
                 onCreate();
