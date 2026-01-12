@@ -1,6 +1,7 @@
 # Aura
 
 Aura is a privacy-focused crypto tracking app built with Tauri, React, and TypeScript.
+Still in active development.
 
 ## Features
 
