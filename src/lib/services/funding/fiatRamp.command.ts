@@ -1,5 +1,5 @@
 import { StringRowId } from "@/lib/models/common";
-import { CreateFiatRamp, FiatRamp, FiatRampPagination, UpdateFiatRamp } from "@/lib/models/fiatRamp";
+import { CreateFiatRamp, FiatRampPagination, UpdateFiatRamp } from "@/lib/models/fiatRamp";
 import { invoke } from "@tauri-apps/api/core";
 import { format } from "date-fns";
 
