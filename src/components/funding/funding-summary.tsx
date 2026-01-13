@@ -38,7 +38,7 @@ export default function FundingSummary() {
         series: [
             {
                 name: 'Fiat Ramp',
-                data: fiats.map((f) => 120), // logical placeholder
+                data: fiats.map((_f) => 120), // logical placeholder
                 type: 'bar'
             }
         ]
