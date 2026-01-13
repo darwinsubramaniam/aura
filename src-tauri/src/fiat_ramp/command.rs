@@ -1,7 +1,6 @@
 use crate::db::Db;
 use crate::db::StringRowId;
 use crate::fiat_ramp::CreateFiatRamp;
-use crate::fiat_ramp::FiatRamp;
 use crate::fiat_ramp::FiatRampPagination;
 use crate::fiat_ramp::FiatRampService;
 use crate::fiat_ramp::UpdateFiatRamp;

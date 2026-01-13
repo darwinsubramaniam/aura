@@ -60,6 +60,17 @@ pub struct FiatRampSummary {
     pub data: HashMap<String, f64>,
 }
 
+#[derive(Debug, FromRow, Serialize, Deserialize)]
+pub struct FiatRampView {
+    #[serde(flatten)]
+    #[sqlx(flatten)]
+    pub ramp: FiatRamp,
+    pub target_fiat_id: RowId,
+    pub target_fiat_symbol: String,
+    pub conversion_rate: Option<f64>,
+    pub converted_amount: Option<f64>,
+}
+
 pub struct FiatRampService {}
 
 impl FiatRampService {
@@ -324,5 +335,114 @@ mod tests {
 
         let result = FiatRampService::delete(id, &db).await;
         assert!(result.unwrap() == 1);
+    }
+
+    #[tokio::test]
+    async fn test_fiat_ramp_view() {
+        let db = init_db().await;
+        // 1. Create a User Settings with default Fiat as USD (id=1 is likely USD based on init_db mocks usually, but let's check or just use 1)
+        // In `init_db`, migrations are run. `1_init.sql` likely creates fiat table. `3_create_fiat.sql` populates it?
+        // Let's assume id 1 exists. In `test_create_fiat_ramp` we use fiat_id 1.
+
+        // Insert User Settings (since init_db doesn't seem to do it explicitly, but `ensure_exists` does)
+        // Let's manually insert user settings using SQL to be sure.
+        sqlx::query("INSERT OR REPLACE INTO user_settings (id, locale, default_fiat_id) VALUES (1, 'en', 1)")
+            .execute(&db.0)
+            .await
+            .unwrap();
+
+        // 2. Create a Fiat Ramp
+        // Let's say we dealt in EUR (which we need to make sure exists or just use ID 2)
+        // In `init_db` mock api returns MYR and SGD. `update_currencies` populates them.
+        // Let's check `init_db` in `fiat_ramp/mod.rs`:
+        // It calls `FiatService::new(mock_api).update_currencies(&db)`.
+        // Mock returns MYR and SGD.
+        // So ID 1 might be MYR or SGD depending on insertion order.
+        // Let's just use explicit SQL to insert fiats we want to test with to be safe, or query them.
+        let usd_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO fiat (symbol, name) VALUES ('USD', 'US Dollar') RETURNING id",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
+        let eur_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO fiat (symbol, name) VALUES ('EUR', 'Euro') RETURNING id",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
+
+        // Set User Default to USD
+        sqlx::query("UPDATE user_settings SET default_fiat_id = ? WHERE id = 1")
+            .bind(usd_id)
+            .execute(&db.0)
+            .await
+            .unwrap();
+
+        let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 25).unwrap();
+
+        // Create Ramp in EUR
+        let create_ramp = CreateFiatRamp {
+            fiat_id: eur_id,
+            fiat_amount: 100.0,
+            ramp_date: date,
+            via_exchange: "test".to_string(),
+            kind: RampKind::Deposit,
+        };
+        FiatRampService::create(create_ramp, &db).await.unwrap();
+
+        // 3. Insert Rates
+        // We need a rate for EUR -> USD on that date.
+        // Rate table has base_fiat_id.
+        // If base is EUR, rates JSON should contain USD.
+        let rates = serde_json::json!({
+            "USD": 1.05,
+            "EUR": 1.0
+        });
+        sqlx::query("INSERT INTO fiat_rate (base_fiat_id, date, rates) VALUES (?, ?, ?)")
+            .bind(eur_id)
+            .bind(date)
+            .bind(rates.to_string())
+            .execute(&db.0)
+            .await
+            .unwrap();
+
+        // 4. Query View
+        let view_result = sqlx::query_as::<sqlx::Sqlite, FiatRampView>(
+            "SELECT * FROM fiat_ramp_view WHERE kind = 'deposit'",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
+
+        assert_eq!(view_result.target_fiat_symbol, "USD");
+        assert_eq!(view_result.conversion_rate, Some(1.05));
+        assert_eq!(view_result.converted_amount, Some(105.0));
+
+        // 5. Test Same Currency Conversion (Identity Case)
+        // Create Ramp in USD (Default is USD)
+        // No rate entry needed for this date/pair ideally if our view logic is correct.
+        let create_ramp_usd = CreateFiatRamp {
+            fiat_id: usd_id,
+            fiat_amount: 50.0,
+            ramp_date: date,
+            via_exchange: "withdraw_test".to_string(),
+            kind: RampKind::Withdraw,
+        };
+        FiatRampService::create(create_ramp_usd, &db).await.unwrap();
+
+        let view_result_usd = sqlx::query_as::<sqlx::Sqlite, FiatRampView>(
+            "SELECT * FROM fiat_ramp_view WHERE kind = 'withdraw'",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
+
+        assert_eq!(view_result_usd.target_fiat_symbol, "USD");
+        assert_eq!(view_result_usd.ramp.fiat_symbol, Some("USD".to_string()));
+        // Conversion rate should be 1.0
+        assert_eq!(view_result_usd.conversion_rate, Some(1.0));
+        // Amount should be same
+        assert_eq!(view_result_usd.converted_amount, Some(50.0));
     }
 }
