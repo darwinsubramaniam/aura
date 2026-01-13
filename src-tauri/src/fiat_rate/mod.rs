@@ -3,6 +3,8 @@ use crate::fiat::FiatService;
 use crate::{db::Db, fiat_exchanger::FiatExchanger};
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -45,10 +47,13 @@ pub async fn get_rate<A: FiatExchanger>(
             let base_symbol = base_fiat.symbol;
             let base_name = base_fiat.name;
             // forward the request to the Frankfurter API
-            let rate = exchange_api
+            let mut rate = exchange_api
                 .get_latest_rates(&base_symbol.as_str(), Some(date))
                 .await
                 .context("External API :: Get Latest Rates :: Failed")?;
+            // add the base fiat rate to the rates
+            rate.rates.insert(base_symbol.clone(), 1.0);
+
             // insert the rate into the database
             let mut fiat_rate = sqlx::query_as::<sqlx::Sqlite, FiatRate>(
                 "INSERT INTO fiat_rate (base_fiat_id, date, rates) VALUES (?, ?, ?) RETURNING *",
@@ -67,6 +72,29 @@ pub async fn get_rate<A: FiatExchanger>(
         }
         Err(e) => Err(e.into()),
     }
+}
+
+pub async fn get_conversion_amount(
+    rates: HashMap<String, f64>,
+    amount: f64,
+    to: &str,
+    from: &str,
+) -> Result<f64> {
+    let to_rate = rates
+        .get(to)
+        .context(format!("failed to get TO rate: {}", to))?;
+    let from_rate = rates
+        .get(from)
+        .context(format!("failed to get FROM rate: {}", from))?;
+
+    let to_rate_dec = Decimal::from_f64_retain(*to_rate).context("invalid to_rate")?;
+    let from_rate_dec = Decimal::from_f64_retain(*from_rate).context("invalid from_rate")?;
+    let amount_dec = Decimal::from_f64_retain(amount).context("invalid amount")?;
+
+    let converted_amount = amount_dec * (to_rate_dec / from_rate_dec);
+    let rounded_value = converted_amount.round_dp(2);
+    
+    Ok(rounded_value.to_f64().unwrap())
 }
 
 #[cfg(test)]
@@ -132,7 +160,7 @@ mod tests {
             .times(1)
             .returning(|_, _| {
                 Ok(Rates {
-                    rates: HashMap::from([("EUR".to_string(), 0.85)]),
+                    rates: HashMap::from([("EUR".to_string(), 0.85), ("MYR".to_string(), 4.7424)]),
                     base: "USD".to_string(),
                     date: NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
                 })
@@ -145,5 +173,81 @@ mod tests {
         )
         .await;
         assert!(rate.is_ok());
+        let rate = rate.unwrap();
+        //ensure base fiat rate is 1
+        assert_eq!(rate.rates.get("USD").unwrap(), &1.0);
+        //ensure other fiat rates are correct
+        assert_eq!(rate.rates.get("EUR").unwrap(), &0.85);
+        assert_eq!(rate.rates.get("MYR").unwrap(), &4.7424);
+    }
+
+    #[tokio::test]
+    async fn test_get_conversion_amount() {
+        let rates = HashMap::from([
+            ("AUD".to_string(), 1.7441),
+            ("BRL".to_string(), 6.2733),
+            ("CAD".to_string(), 1.6163),
+            ("CHF".to_string(), 0.9314),
+            ("CNY".to_string(), 8.1288),
+            ("CZK".to_string(), 24.337),
+            ("DKK".to_string(), 7.4724),
+            ("GBP".to_string(), 0.8677),
+            ("HKD".to_string(), 9.0763),
+            ("HUF".to_string(), 386.03),
+            ("IDR".to_string(), 19628.24),
+            ("ILS".to_string(), 3.6745),
+            ("INR".to_string(), 105.0335),
+            ("ISK".to_string(), 147.4),
+            ("JPY".to_string(), 183.52),
+            ("KRW".to_string(), 1699.55),
+            ("MXN".to_string(), 20.9879),
+            ("MYR".to_string(), 4.7424),
+            ("NOK".to_string(), 11.7765),
+            ("NZD".to_string(), 2.0339),
+            ("PHP".to_string(), 68.935),
+            ("PLN".to_string(), 4.2138),
+            ("RON".to_string(), 5.0902),
+            ("SEK".to_string(), 10.748),
+            ("SGD".to_string(), 1.4984),
+            ("THB".to_string(), 36.632),
+            ("TRY".to_string(), 50.1841),
+            ("USD".to_string(), 1.1642),
+            ("ZAR".to_string(), 19.2966),
+            ("EUR".to_string(), 1.0),
+        ]);
+
+        /*
+        | From | To  | Amount | Expected (2 dp) |
+        | ---- | --- | ------ | --------------- |
+        | USD  | MYR | 123.45 | 502.88          |
+        | SGD  | INR | 50.00  | 3504.86         |
+        | JPY  | GBP | 2500.0 | 11.82           |
+        | AUD  | USD | 75.25  | 50.23           |
+        | KRW  | SGD | 999.99 | 0.88            |
+        | EUR  | THB | 10.00  | 366.32          |
+        | MYR  | USD | 500.00 | 122.74          |
+        | CHF  | NOK | 33.33  | 421.42          |
+        | PLN  | HKD | 88.80  | 191.27          |
+        | ZAR  | CAD | 100.00 | 8.38            |
+
+        */
+        let cases = vec![
+            ("USD", "MYR", 123.45, 502.88),
+            ("SGD", "INR", 50.00, 3504.86),
+            ("JPY", "GBP", 2500.0, 11.82),
+            ("AUD", "USD", 75.25, 50.23),
+            ("KRW", "SGD", 999.99, 0.88),
+            ("EUR", "THB", 10.00, 366.32),
+            ("MYR", "USD", 500.00, 122.74),
+            ("CHF", "NOK", 33.33, 421.42),
+            ("PLN", "HKD", 88.80, 191.27),
+            ("ZAR", "CAD", 100.00, 8.38),
+        ];
+        for (from, to, amount, expected) in cases {
+            let conversion_amount = get_conversion_amount(rates.clone(), amount, to, from)
+                .await
+                .unwrap();
+            assert_eq!(conversion_amount, expected);
+        }
     }
 }
