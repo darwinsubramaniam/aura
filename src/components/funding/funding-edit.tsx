@@ -21,12 +21,12 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { FiatCommand } from "@/lib/services/fiat/fiat.command";
-import { FiatRamp, UpdateFiatRamp } from "@/lib/models/fiatRamp";
+import { FiatRampView, UpdateFiatRamp } from "@/lib/models/fiatRamp";
 import { Fiat } from "@/lib/models/fiat";
 import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 
 interface FundingEditFormProps {
-    fiatRamp: FiatRamp;
+    fiatRamp: FiatRampView;
     onUpdated?: () => void;
     onCancel?: () => void;
 }
@@ -34,7 +34,7 @@ interface FundingEditFormProps {
 export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: FundingEditFormProps) {
     const { showSuccess, showError } = useNotification();
     // Initialize state with props
-    const [fiat, setFiat] = useState<string>(fiatRamp.fiat_id.toString());
+    const [fiat, setFiat] = useState<string>(fiatRamp.from_fiat_id.toString());
     const [fiatAmount, setFiatAmount] = useState<number>(fiatRamp.fiat_amount);
     const [fiats, setFiats] = useState<Fiat[]>([]);
     const [rampDate, setRampDate] = useState<Date | undefined>(fiatRamp.ramp_date ? new Date(fiatRamp.ramp_date) : undefined);
@@ -52,7 +52,7 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
 
     // Update state if prop changes
     useEffect(() => {
-        setFiat(fiatRamp.fiat_id.toString());
+        setFiat(fiatRamp.from_fiat_id.toString());
         setFiatAmount(fiatRamp.fiat_amount);
         setRampDate(fiatRamp.ramp_date ? new Date(fiatRamp.ramp_date) : undefined);
         setViaExchange(fiatRamp.via_exchange);
@@ -64,7 +64,7 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
 
         // Prepare object for backend
         const updatedRamp: UpdateFiatRamp = {
-            id: fiatRamp.id,
+            id: fiatRamp.fiat_ramp_id,
             fiat_id: parseInt(fiat),
             fiat_amount: fiatAmount,
             ramp_date: rampDate,
@@ -145,6 +145,7 @@ export default function FundingEditForm({ fiatRamp, onUpdated, onCancel }: Fundi
                             mode="single"
                             selected={rampDate}
                             onSelect={setRampDate}
+                            disabled={(date) => date > new Date()}
                             initialFocus
                         />
                     </PopoverContent>

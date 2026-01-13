@@ -35,6 +35,7 @@ interface DataTableProps<TData, TValue> {
     searchKey?: string
     searchValue?: string
     onSearchChange?: (value: string) => void
+    getRowId?: (row: TData) => string
 }
 
 export function DataTable<TData, TValue>({
@@ -50,7 +51,8 @@ export function DataTable<TData, TValue>({
     loading,
     searchKey,
     searchValue,
-    onSearchChange
+    onSearchChange,
+    getRowId,
 }: DataTableProps<TData, TValue>) {
 
     // If we manage pagination server side, we rely on the props.
@@ -87,7 +89,7 @@ export function DataTable<TData, TValue>({
                 onRowSelectionChange(nextRowSelection)
             }
         },
-        getRowId: (row: any) => row.id, // Assuming 'id' is present
+        getRowId: getRowId || ((row: any) => row.id), // Use prop or default to 'id'
     })
 
     return (

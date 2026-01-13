@@ -26,6 +26,8 @@ pub struct FiatRamp {
     pub updated_at: chrono::NaiveDateTime,
     #[serde(default)]
     pub fiat_symbol: Option<String>,
+    #[sqlx(default)]
+    pub is_estimated: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,7 +52,7 @@ pub struct CreateFiatRamp {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FiatRampPagination {
     pub total_count: i64,
-    pub fiat_ramps: Vec<FiatRamp>,
+    pub fiat_ramps: Vec<FiatRampWithConversionView>,
 }
 
 pub struct FiatRampSummary {
@@ -75,6 +77,8 @@ pub struct FiatRampWithConversionView {
     pub fiat_amount: f64,
     pub kind: RampKind,
     pub via_exchange: String,
+    #[sqlx(default)]
+    pub is_estimated: bool,
     pub converted_amount: Option<f64>,
 }
 
@@ -114,7 +118,7 @@ impl FiatRampService {
         db: &Db,
     ) -> Result<FiatRampPagination, String> {
         let query_filter = query.unwrap_or_default();
-        let total_count = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_ramp LEFT JOIN fiat ON fiat_ramp.fiat_id = fiat.id WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR fiat.symbol LIKE ?")
+        let total_count = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_ramp_view WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR from_fiat_symbol LIKE ?")
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
@@ -123,7 +127,7 @@ impl FiatRampService {
             .await
             .map_err(|e| format!("failed to get total count: {e}"))?;
         let result =
-            sqlx::query_as::<sqlx::Sqlite, FiatRamp>("SELECT fiat_ramp.*, fiat.symbol as fiat_symbol FROM fiat_ramp LEFT JOIN fiat ON fiat_ramp.fiat_id = fiat.id WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR fiat.symbol LIKE ? LIMIT ? OFFSET ?")
+            sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>("SELECT * FROM fiat_ramp_view WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR from_fiat_symbol LIKE ? LIMIT ? OFFSET ?")
                 .bind(format!("%{}%", query_filter))
                 .bind(format!("%{}%", query_filter))
                 .bind(format!("%{}%", query_filter))
@@ -132,7 +136,7 @@ impl FiatRampService {
                 .bind(offset)
                 .fetch_all(&db.0)
                 .await
-                .map_err(|e| format!("failed to select from fiat_ramp table: {e}"))?;
+                .map_err(|e| format!("failed to select from fiat_ramp_view: {e}"))?;
         Ok(FiatRampPagination {
             total_count,
             fiat_ramps: result,
@@ -223,6 +227,19 @@ mod tests {
 
         let fiat_service = FiatService::new(mock_api);
         fiat_service.update_currencies(&db).await.unwrap();
+
+        // Setup user settings
+        let fiat_id = sqlx::query_scalar::<_, i64>("SELECT id FROM fiat LIMIT 1")
+            .fetch_one(&db.0)
+            .await
+            .unwrap();
+            
+        sqlx::query("INSERT OR REPLACE INTO user_settings (id, locale, default_fiat_id) VALUES (1, 'en', ?)")
+            .bind(fiat_id)
+            .execute(&db.0)
+            .await
+            .unwrap();
+
         db
     }
 
@@ -281,12 +298,10 @@ mod tests {
             result.total_count
         );
 
-        assert!(result.fiat_ramps[0].fiat_symbol.is_some());
-        let symbol = result.fiat_ramps[0]
-            .fiat_symbol
-            .as_deref()
-            .expect("Fiat symbol should be present");
-        assert!(matches!(symbol, "MYR" | "SGD"));
+        assert!(!result.fiat_ramps[0].from_fiat_symbol.is_empty());
+        let symbol = &result.fiat_ramps[0]
+            .from_fiat_symbol;
+        assert!(matches!(symbol.as_str(), "MYR" | "SGD"));
     }
 
     #[tokio::test]
@@ -449,5 +464,46 @@ mod tests {
         assert_eq!(view_result_usd.conversion_rate, Some(1.0));
         // Amount should be same
         assert_eq!(view_result_usd.converted_amount, Some(50.0));
+    }
+
+    #[tokio::test]
+    async fn test_fiat_ramp_view_estimated() {
+        let db = init_db().await;
+
+        // 1. Setup User Settings (Default USD)
+        let usd_id = sqlx::query_scalar::<_, i64>("INSERT INTO fiat (symbol, name) VALUES ('USD', 'US Dollar') RETURNING id").fetch_one(&db.0).await.unwrap();
+        let eur_id = sqlx::query_scalar::<_, i64>("INSERT INTO fiat (symbol, name) VALUES ('EUR', 'Euro') RETURNING id").fetch_one(&db.0).await.unwrap();
+        sqlx::query("INSERT OR REPLACE INTO user_settings (id, locale, default_fiat_id) VALUES (1, 'en', ?)")
+            .bind(usd_id)
+            .execute(&db.0).await.unwrap();
+
+        let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 26).unwrap();
+
+        // 2. Create Ramp
+        let create_ramp = CreateFiatRamp {
+            fiat_id: eur_id,
+            fiat_amount: 100.0,
+            ramp_date: date,
+            via_exchange: "est_test".to_string(),
+            kind: RampKind::Deposit,
+        };
+        FiatRampService::create(create_ramp, &db).await.unwrap();
+
+        // 3. Insert Estimated Rate (is_estimated = 1)
+        let rates = serde_json::json!({ "USD": 1.10, "EUR": 1.0 });
+        sqlx::query("INSERT INTO fiat_exchange_rate (base_fiat_id, date, rates, is_estimated) VALUES (?, ?, ?, ?)")
+            .bind(eur_id)
+            .bind(date)
+            .bind(rates.to_string())
+            .bind(true)
+            .execute(&db.0).await.unwrap();
+
+        // 4. Verify View
+        let view_result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
+            "SELECT * FROM fiat_ramp_view WHERE via_exchange = 'est_test'",
+        )
+        .fetch_one(&db.0).await.unwrap();
+
+        assert_eq!(view_result.is_estimated, true);
     }
 }

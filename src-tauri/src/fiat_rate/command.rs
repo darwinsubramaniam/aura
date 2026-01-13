@@ -12,7 +12,7 @@ async fn get_fiat_rate(
 ) -> Result<FiatExchangeRate> {
     let exchange_api = FrankfurterExchangerApi::default();
 
-    let rate = get_rate(&db, &exchange_api, base_fiat_id, date).await?;
+    let rate = get_rate(&db, &exchange_api, base_fiat_id, date, None).await?;
 
     Ok(rate)
 }
