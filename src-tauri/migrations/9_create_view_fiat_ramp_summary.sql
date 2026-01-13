@@ -1,5 +1,3 @@
-DROP VIEW IF EXISTS fiat_ramp_summary;
-
 CREATE VIEW IF NOT EXISTS fiat_ramp_summary AS
 SELECT
     SUM(converted_amount) as total_conversions,

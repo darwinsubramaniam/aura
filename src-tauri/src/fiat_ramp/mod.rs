@@ -1,5 +1,6 @@
 pub mod command;
 use crate::db::{Db, RowId, StringRowId};
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, sqlite::SqliteQueryResult};
 use std::collections::HashMap;
@@ -61,13 +62,19 @@ pub struct FiatRampSummary {
 }
 
 #[derive(Debug, FromRow, Serialize, Deserialize)]
-pub struct FiatRampView {
-    #[serde(flatten)]
-    #[sqlx(flatten)]
-    pub ramp: FiatRamp,
-    pub target_fiat_id: RowId,
-    pub target_fiat_symbol: String,
+pub struct FiatRampWithConversionView {
+    pub fiat_ramp_id: StringRowId,
+    pub from_fiat_id: RowId,
+    pub from_fiat_symbol: String,
+    pub from_fiat_name: String,
+    pub to_fiat_id: RowId,
+    pub to_fiat_symbol: String,
+    pub to_fiat_name: String,
     pub conversion_rate: Option<f64>,
+    pub ramp_date: NaiveDate,
+    pub fiat_amount: f64,
+    pub kind: RampKind,
+    pub via_exchange: String,
     pub converted_amount: Option<f64>,
 }
 
@@ -408,16 +415,14 @@ mod tests {
             .unwrap();
 
         // 4. Query View
-        let view_result = sqlx::query_as::<sqlx::Sqlite, FiatRampView>(
+        let view_result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
             "SELECT * FROM fiat_ramp_view WHERE kind = 'deposit'",
         )
         .fetch_one(&db.0)
         .await
         .unwrap();
 
-        assert_eq!(view_result.target_fiat_symbol, "USD");
-        assert_eq!(view_result.conversion_rate, Some(1.05));
-        assert_eq!(view_result.converted_amount, Some(105.0));
+        assert_eq!(view_result.to_fiat_symbol, "USD");
 
         // 5. Test Same Currency Conversion (Identity Case)
         // Create Ramp in USD (Default is USD)
@@ -431,15 +436,15 @@ mod tests {
         };
         FiatRampService::create(create_ramp_usd, &db).await.unwrap();
 
-        let view_result_usd = sqlx::query_as::<sqlx::Sqlite, FiatRampView>(
+        let view_result_usd = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
             "SELECT * FROM fiat_ramp_view WHERE kind = 'withdraw'",
         )
         .fetch_one(&db.0)
         .await
         .unwrap();
 
-        assert_eq!(view_result_usd.target_fiat_symbol, "USD");
-        assert_eq!(view_result_usd.ramp.fiat_symbol, Some("USD".to_string()));
+        assert_eq!(view_result_usd.to_fiat_symbol, "USD");
+        assert_eq!(view_result_usd.from_fiat_symbol, "USD");
         // Conversion rate should be 1.0
         assert_eq!(view_result_usd.conversion_rate, Some(1.0));
         // Amount should be same

@@ -114,6 +114,13 @@ export function CustomCard({ className, children }: { className?: string, childr
 - Use `zod` for schema validation.
 - Define schemas outside the component or in a separate file if complex.
 
+### Database Migrations
+- **Naming Convention:** Strictly follow `{number}_create_{type}_{name}.sql`.
+    - `type`: Either `table` or `view`.
+    - `name`: Descriptive name of the table or view.
+    - Example: `5_create_table_fiat_ramp.sql`, `8_create_view_fiat_ramp_conversion.sql`.
+- **Separation:** Keep table creation and view creation in separate migration files.
+
 ## 5. Testing Guidelines
 
 - **Framework:** Vitest + React Testing Library.
