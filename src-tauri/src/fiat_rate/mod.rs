@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, sqlx::FromRow, Serialize, Deserialize)]
-pub struct FiatRate {
+pub struct FiatExchangeRate {
     pub id: i64,
     pub base_fiat_id: i64,
     #[sqlx(skip)]
@@ -27,11 +27,11 @@ pub async fn get_rate<A: FiatExchanger>(
     exchange_api: &A,
     base_fiat_id: i64,
     date: &NaiveDate,
-) -> Result<FiatRate> {
-    let db_result = sqlx::query_as::<sqlx::Sqlite, FiatRate>(
-        "SELECT fiat_rate.*, fiat.symbol, fiat.name FROM fiat_rate 
-        JOIN fiat ON fiat_rate.base_fiat_id = fiat.id 
-        WHERE fiat_rate.base_fiat_id = ? AND fiat_rate.date = ?",
+) -> Result<FiatExchangeRate> {
+    let db_result = sqlx::query_as::<sqlx::Sqlite, FiatExchangeRate>(
+        "SELECT fiat_exchange_rate.*, fiat.symbol, fiat.name FROM fiat_exchange_rate 
+        JOIN fiat ON fiat_exchange_rate.base_fiat_id = fiat.id 
+        WHERE fiat_exchange_rate.base_fiat_id = ? AND fiat_exchange_rate.date = ?",
     )
     .bind(base_fiat_id)
     .bind(date)
@@ -55,8 +55,8 @@ pub async fn get_rate<A: FiatExchanger>(
             rate.rates.insert(base_symbol.clone(), 1.0);
 
             // insert the rate into the database
-            let mut fiat_rate = sqlx::query_as::<sqlx::Sqlite, FiatRate>(
-                "INSERT INTO fiat_rate (base_fiat_id, date, rates) VALUES (?, ?, ?) RETURNING *",
+            let mut fiat_rate = sqlx::query_as::<sqlx::Sqlite, FiatExchangeRate>(
+                "INSERT INTO fiat_exchange_rate (base_fiat_id, date, rates) VALUES (?, ?, ?) RETURNING *",
             )
             .bind(base_fiat_id)
             .bind(date)
@@ -117,11 +117,11 @@ mod tests {
             .unwrap();
 
         let db = Db(pool);
-        // create fiat_rate table
+        // create fiat_exchange_rate table
         sqlx::migrate!("./migrations")
             .run(&db.0)
             .await
-            .context("failed to create fiat_rate table")
+            .context("failed to create fiat_exchange_rate table")
             .unwrap();
 
         // Mock API

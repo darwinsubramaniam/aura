@@ -18,7 +18,7 @@ pub struct Fiat {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-pub struct FiatRate {
+pub struct FiatExchangeRate {
     pub id: i64,
     pub base_fiat_id: i64,
     pub date: chrono::NaiveDate,
@@ -206,7 +206,7 @@ mod tests {
         sqlx::migrate!("./migrations")
             .run(&db.0)
             .await
-            .context("failed to create fiat_rate table")
+            .context("failed to run migrations")
             .unwrap();
         db
     }
