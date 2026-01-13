@@ -1,4 +1,4 @@
--- Create a view that joins fiat_ramp with fiat_rate to show conversion details
+-- Create a view that joins fiat_ramp with fiat_exchange_rate to show conversion details
 DROP VIEW IF EXISTS fiat_ramp_view;
 
 CREATE VIEW IF NOT EXISTS fiat_ramp_view AS
@@ -32,13 +32,13 @@ FROM (
                     fiat_ramp.id, fiat_ramp.fiat_id, fiat_ramp.fiat_amount, fiat_ramp.ramp_date, fiat_ramp.kind, fiat_ramp.via_exchange, fiat_ramp.created_at, fiat_ramp.updated_at, fiat.symbol as fiat_symbol, fiat.name as fiat_name, user_settings.default_fiat_id as target_fiat_id, default_fiat.symbol as target_fiat_symbol, default_fiat.name as target_fiat_name, CASE
                         WHEN fiat_ramp.fiat_id = user_settings.default_fiat_id THEN 1.0
                         ELSE json_extract(
-                            fiat_rate.rates, '$.' || fiat.symbol
+                            fiat_exchange_rate.rates, '$.' || fiat.symbol
                         )
-                    END as from_rate, fiat_rate.rates
+                    END as from_rate, fiat_exchange_rate.rates
                 FROM
                     fiat_ramp
                     JOIN fiat ON fiat.id = fiat_id
-                    JOIN fiat_rate ON fiat_rate.date = ramp_date
+                    JOIN fiat_exchange_rate ON fiat_exchange_rate.date = ramp_date
                     JOIN fiat as default_fiat ON default_fiat.id = user_settings.default_fiat_id
                     JOIN user_settings ON user_settings.id = 1
             ) as t1

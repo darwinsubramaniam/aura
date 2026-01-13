@@ -406,7 +406,7 @@ mod tests {
             "USD": 1.05,
             "EUR": 1.0
         });
-        sqlx::query("INSERT INTO fiat_rate (base_fiat_id, date, rates) VALUES (?, ?, ?)")
+        sqlx::query("INSERT INTO fiat_exchange_rate (base_fiat_id, date, rates) VALUES (?, ?, ?)")
             .bind(eur_id)
             .bind(date)
             .bind(rates.to_string())
