@@ -165,6 +165,7 @@ export default function FundingCreateForm({ onCancel, onCreate }: FundingCreateF
                                         mode="single"
                                         selected={field.value}
                                         onSelect={field.onChange}
+                                        disabled={(date) => date > new Date()}
                                         initialFocus
                                     />
                                 </PopoverContent>

@@ -10,22 +10,34 @@ export interface CreateFiatRamp {
     kind: RampKind;
 }
 
-export interface FiatRamp {
-    id: StringRowId;
-    fiat_id: RowId;
+export interface FiatRampView {
+    fiat_ramp_id: StringRowId;
+    from_fiat_id: RowId;
+    from_fiat_symbol: string;
+    from_fiat_name: string;
+    to_fiat_id: RowId;
+    to_fiat_symbol: string;
+    to_fiat_name: string;
+    conversion_rate: number | null;
+    ramp_date: string;
     fiat_amount: number;
-    ramp_date: Date;
-    via_exchange: string;
     kind: RampKind;
-    created_at: Date;
-    updated_at: Date;
-    fiat_symbol: string;
+    via_exchange: string;
+    is_estimated: boolean;
+    converted_amount: number | null;
 }
 
 // must have id
-export type UpdateFiatRamp = Partial<FiatRamp> & { id: StringRowId };
+export interface UpdateFiatRamp {
+    id: StringRowId;
+    fiat_id?: RowId;
+    fiat_amount?: number;
+    ramp_date?: Date;
+    via_exchange?: string;
+    kind?: RampKind;
+}
 
 export interface FiatRampPagination {
     total_count: number;
-    fiat_ramps: FiatRamp[];
+    fiat_ramps: FiatRampView[];
 }

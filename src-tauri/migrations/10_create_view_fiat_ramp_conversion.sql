@@ -1,6 +1,3 @@
--- Create a view that joins fiat_ramp with fiat_exchange_rate to show conversion details
-DROP VIEW IF EXISTS fiat_ramp_view;
-
 CREATE VIEW IF NOT EXISTS fiat_ramp_view AS
 SELECT
     t2.id as fiat_ramp_id,
@@ -15,6 +12,7 @@ SELECT
     t2.fiat_amount as `fiat_amount`,
     t2.kind as `kind`,
     t2.via_exchange as `via_exchange`,
+    COALESCE(t2.is_estimated, 0) as `is_estimated`,
     ROUND(
         t2.fiat_amount * (t2.to_rate / t2.from_rate),
         2
@@ -34,11 +32,12 @@ FROM (
                         ELSE json_extract(
                             fiat_exchange_rate.rates, '$.' || fiat.symbol
                         )
-                    END as from_rate, fiat_exchange_rate.rates
+                    END as from_rate, fiat_exchange_rate.rates, fiat_exchange_rate.is_estimated
                 FROM
                     fiat_ramp
                     JOIN fiat ON fiat.id = fiat_id
-                    JOIN fiat_exchange_rate ON fiat_exchange_rate.date = ramp_date
+                    LEFT JOIN fiat_exchange_rate ON fiat_exchange_rate.date = ramp_date
+                    AND fiat_exchange_rate.base_fiat_id = fiat_ramp.fiat_id
                     JOIN fiat as default_fiat ON default_fiat.id = user_settings.default_fiat_id
                     JOIN user_settings ON user_settings.id = 1
             ) as t1

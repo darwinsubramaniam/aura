@@ -19,9 +19,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { ColumnDef, PaginationState, RowSelectionState, SortingState } from "@tanstack/react-table"
 import { DataTable } from "@/components/ui/data-table"
-import { ArrowUpDown, Pencil, Trash } from "lucide-react"
+import { Pencil, Trash, Clock } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { FiatRamp } from '@/lib/models/fiatRamp';
+import { FiatRampView } from '@/lib/models/fiatRamp';
 import { FiatRampCommand } from '@/lib/services/funding/fiatRamp.command';
 
 
@@ -38,14 +39,14 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    const [funding, setFunding] = useState<FiatRamp[]>([]);
+    const [funding, setFunding] = useState<FiatRampView[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const [editDialogVisible, setEditDialogVisible] = useState(false);
-    const [editingFunding, setEditingFunding] = useState<FiatRamp | null>(null);
+    const [editingFunding, setEditingFunding] = useState<FiatRampView | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<FiatRamp | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<FiatRampView | null>(null);
     const [deleteSelectedDialogOpen, setDeleteSelectedDialogOpen] = useState(false);
 
     const loadData = useCallback(() => {
@@ -85,12 +86,12 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
         });
     };
 
-    const confirmDeleteFiatRamp = (fiatRamp: FiatRamp) => {
+    const confirmDeleteFiatRamp = (fiatRamp: FiatRampView) => {
         setItemToDelete(fiatRamp);
         setDeleteDialogOpen(true);
     };
 
-    const openEditDialog = (fiatRamp: FiatRamp) => {
+    const openEditDialog = (fiatRamp: FiatRampView) => {
         setEditingFunding(fiatRamp);
         setEditDialogVisible(true);
     };
@@ -103,7 +104,9 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     };
 
 
-    const columns: ColumnDef<FiatRamp>[] = useMemo(
+    const targetSymbol = funding.length > 0 ? funding[0].to_fiat_symbol : "";
+
+    const columns: ColumnDef<FiatRampView>[] = useMemo(
         () => [
             {
                 id: "select",
@@ -128,17 +131,27 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                 enableHiding: false,
             },
             {
-                accessorKey: "fiat_symbol",
-                header: ({ column }) => {
+                accessorKey: "ramp_date",
+                header: "On (Date)",
+                cell: ({ row }) => {
+                    const date = row.getValue("ramp_date") as string;
+                    const isEstimated = row.original.is_estimated;
+
                     return (
-                        <Button
-                            variant="ghost"
-                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        >
-                            Fiat
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </Button>
-                    )
+                        <div className="flex items-center gap-2">
+                            <span>{date}</span>
+                            {isEstimated && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Clock className="h-4 w-4 text-amber-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Estimated rate (fallback from previous day)</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                        </div>
+                    );
                 },
             },
             {
@@ -146,16 +159,28 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                 header: "Fiat Amount",
                 cell: ({ row }) => {
                     const amount = parseFloat(row.getValue("fiat_amount"))
+                    const symbol = row.original.from_fiat_symbol || "USD";
                     const formatted = new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: "USD",
+                        currency: symbol,
                     }).format(amount)
                     return <div className="font-medium">{formatted}</div>
                 },
             },
             {
-                accessorKey: "ramp_date",
-                header: "On (Date)",
+                accessorKey: "converted_amount",
+                header: targetSymbol ? `Converted (${targetSymbol})` : "Converted",
+                cell: ({ row }) => {
+                    const amount = row.original.converted_amount;
+                    const symbol = row.original.to_fiat_symbol;
+                    if (amount === null || amount === undefined) return <div className="text-muted-foreground">-</div>;
+                    
+                    const formatted = new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: symbol || "USD", // Fallback, though view should provide it
+                    }).format(amount)
+                    return <div className="font-medium text-emerald-600">{formatted}</div>
+                },
             },
             {
                 accessorKey: "via_exchange",
@@ -187,7 +212,7 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                 },
             },
         ],
-        []
+        [targetSymbol]
     )
 
     return (
@@ -214,6 +239,7 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                     loading={loading}
                     searchValue={globalFilter}
                     onSearchChange={setGlobalFilter}
+                    getRowId={(row) => row.fiat_ramp_id} 
                     searchKey="global" // We are doing global search
                 />
             </CardContent>
@@ -228,7 +254,7 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => itemToDelete && deleteFiatRamp(itemToDelete.id)}>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={() => itemToDelete && deleteFiatRamp(itemToDelete.fiat_ramp_id)}>Continue</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

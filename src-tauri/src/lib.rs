@@ -41,6 +41,20 @@ pub fn run() {
                 {
                     eprintln!("Failed to update currencies: {}", e);
                 }
+
+                if let Err(e) = user_settings::ensure_exists::<FrankfurterExchangerApi>(&db).await {
+                    eprintln!("Failed to ensure user settings: {}", e);
+                }
+
+                // Background task: Process missing rates queue
+                let db_for_task = Db(db.0.clone());
+                tauri::async_runtime::spawn(async move {
+                    let api = FrankfurterExchangerApi::default();
+                    if let Err(e) = crate::fiat_rate::process_missing_rates(&db_for_task, &api).await {
+                        eprintln!("Failed to process missing rates: {}", e);
+                    }
+                });
+
                 handle.manage(db);
                 Ok::<(), String>(())
             })?;
