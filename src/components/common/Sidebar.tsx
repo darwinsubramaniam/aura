@@ -24,7 +24,7 @@ export default function Sidebar({ visible, onHide }: SidebarProps) {
 
     return (
         <Sheet open={visible} onOpenChange={(open) => !open && onHide()}>
-            <SheetContent side="left" className="w-full md:w-[20rem] lg:w-[30rem]">
+            <SheetContent side="left" className="w-full md:w-[20rem] lg:w-[30rem] pt-10">
                 <SheetHeader className="mb-4 text-left">
                     <SheetTitle>Navigation</SheetTitle>
                     <SheetDescription className="sr-only">
