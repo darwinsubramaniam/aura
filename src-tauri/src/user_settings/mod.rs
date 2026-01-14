@@ -36,7 +36,6 @@ const ONLY_ONE_USER_SETTINGS: RowId = 1;
 /// Ensure user settings exist, creating them if necessary.
 pub async fn ensure_exists<A: FiatExchanger + Default>(db: &Db) -> Result<UserSettings> {
     if exists(db).await? {
-        println!("User settings already exists");
         return get(db).await;
     }
 
@@ -102,7 +101,7 @@ pub async fn get(db: &Db) -> Result<UserSettings> {
     use sqlx::Row;
     let row = sqlx::query(
         r#"
-        SELECT 
+        SELECT
             u.id, u.locale, u.default_fiat_id,
             f.id as f_id, f.symbol as f_symbol, f.name as f_name
         FROM user_settings u
