@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Fiat } from "@/lib/models/fiat";
 import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 import { Button } from "@/components/ui/button";
-import { BarChart3, LineChart } from "lucide-react";
+import { BarChart3, LineChart, Inbox } from "lucide-react";
 
 interface UserSettings {
   default_fiat_id: number;
@@ -22,9 +22,11 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
   const [fiatRamps, setFiatRamps] = useState<FiatRampView[]>([]);
   const [targetCurrency, setTargetCurrency] = useState<Fiat | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
     try {
+      setIsLoading(true);
       // Load user settings to get target currency
       const settings = await invoke<UserSettings>("get_user_settings");
       const fiats = await FiatCommand.getAllCurrencies();
@@ -36,6 +38,8 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
       setFiatRamps(result.fiat_ramps);
     } catch (error) {
       console.error("Failed to load chart data:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -137,6 +141,24 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
 
     return baseOption;
   }, [chartData, currencySymbol, chartType]);
+
+  if (isLoading) {
+    return (
+      <div className="h-[400px] w-full flex items-center justify-center text-muted-foreground animate-pulse">
+        Loading chart data...
+      </div>
+    );
+  }
+
+  if (fiatRamps.length === 0) {
+    return (
+      <div className="h-[400px] w-full flex flex-col items-center justify-center text-muted-foreground border rounded-lg bg-card/50 border-dashed">
+        <Inbox className="h-10 w-10 mb-2 opacity-50" />
+        <p className="text-lg font-medium">No Funding Activity</p>
+        <p className="text-sm">There is no funding data available to display in the chart.</p>
+      </div>
+    );
+  }
 
   return (
     <div>

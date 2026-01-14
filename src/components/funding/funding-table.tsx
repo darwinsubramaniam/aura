@@ -392,6 +392,12 @@ export default function FundingTable({ refreshTrigger, onDataChange }: FundingTa
           onSearchChange={setGlobalFilter}
           getRowId={(row) => row.fiat_ramp_id}
           searchKey="global" // We are doing global search
+          noResultsMessage={
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <p className="text-lg font-medium">No Funding Activity</p>
+              <p className="text-sm">No funding records found.</p>
+            </div>
+          }
         />
       </CardContent>
 
