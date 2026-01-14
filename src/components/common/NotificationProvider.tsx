@@ -37,7 +37,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return (
         <NotificationContext.Provider value={{ showSuccess, showError, showInfo, showWarn }}>
-            <Toaster position={isMobile ? "top-center" : "top-right"} closeButton={true} />
+            <Toaster
+                position={isMobile ? "top-center" : "top-right"}
+                closeButton={true}
+                // Override the style directly to ensure top positioning respects the safe area
+                style={isMobile ? {
+                    top: 'max(60px, calc(env(safe-area-inset-top) + 20px))',
+                    // Ensure it doesn't span full width blindly if we want it centered nicely
+                    left: '52.5%',
+                    transform: 'translateX(-50%)'
+                } : undefined}
+                // Keep offset as fallback/standard for desktop
+                offset={isMobile ? undefined : "32px"}
+            />
             {children}
         </NotificationContext.Provider>
     );
