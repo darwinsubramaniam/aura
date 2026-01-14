@@ -22,6 +22,16 @@ Auro is a cross-platform desktop application bridging a React frontend with a Ru
 
 The project uses `pnpm` for package management.
 
+### Git Workflow & Version Control (IMPORTANT)
+**Rules:**
+1.  **NO direct commits to `main`:** Always use a feature branch.
+2.  **Pull Requests:** All changes must go through a Pull Request (PR).
+3.  **Branch Naming Convention:**
+    - `feat/<feature-name>`: New features or significant enhancements.
+    - `fix/<bug-name>`: Bug fixes or corrections.
+    - `chore/<task-name>`: Maintenance, package upgrades, security fixes, or minor refactoring.
+    - Example: `feat/add-funding-chart`, `fix/login-error-handling`.
+
 ### Setup & Installation
 ```bash
 # Install frontend and tauri dependencies
