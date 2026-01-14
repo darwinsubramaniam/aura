@@ -13,9 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, History } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useNavigate } from "react-router-dom";
 
 export default function Funding() {
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { dateRange, setDateRange } = useFundingDateFilter();
@@ -33,9 +37,9 @@ export default function Funding() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-between items-center">
+      <div className="mb-4 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
         <DateRangeFilter date={dateRange} setDate={setDateRange} />
-        <Button onClick={() => setCreateDialogVisible(true)}>
+        <Button onClick={() => setCreateDialogVisible(true)} className="w-full md:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Deposit / Withdraw
         </Button>
@@ -54,12 +58,24 @@ export default function Funding() {
           endDate={dateRange?.to}
         />
       </div>
-      <FundingTable 
-        refreshTrigger={refreshTrigger} 
-        onDataChange={onTableDataChange}
-        startDate={dateRange?.from}
-        endDate={dateRange?.to}
-      />
+
+      {isMobile ? (
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => navigate("/funding-history")}
+        >
+          <History className="mr-2 h-4 w-4" />
+          View Full Funding History
+        </Button>
+      ) : (
+        <FundingTable 
+          refreshTrigger={refreshTrigger} 
+          onDataChange={onTableDataChange}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+        />
+      )}
 
       <Dialog open={createDialogVisible} onOpenChange={setCreateDialogVisible}>
         <DialogContent>

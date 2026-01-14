@@ -8,6 +8,7 @@ import {
     PaginationState,
     SortingState,
     RowSelectionState,
+    VisibilityState,
 } from "@tanstack/react-table"
 
 import {
@@ -32,6 +33,8 @@ interface DataTableProps<TData, TValue> {
     onSortingChange?: (sorting: SortingState) => void
     rowSelection?: RowSelectionState
     onRowSelectionChange?: (rowSelection: RowSelectionState) => void
+    columnVisibility?: VisibilityState
+    onColumnVisibilityChange?: (columnVisibility: VisibilityState) => void
     loading?: boolean
     skeletonRowCount?: number
     searchKey?: string
@@ -51,6 +54,8 @@ export function DataTable<TData, TValue>({
     onSortingChange,
     rowSelection,
     onRowSelectionChange,
+    columnVisibility,
+    onColumnVisibilityChange,
     loading,
     skeletonRowCount = 5,
     searchKey,
@@ -80,6 +85,7 @@ export function DataTable<TData, TValue>({
             pagination,
             sorting,
             rowSelection,
+            columnVisibility,
         },
         manualSorting: true,
         onSortingChange: (updater) => {
@@ -92,6 +98,12 @@ export function DataTable<TData, TValue>({
             if (onRowSelectionChange && rowSelection) {
                 const nextRowSelection = typeof updater === 'function' ? updater(rowSelection) : updater
                 onRowSelectionChange(nextRowSelection)
+            }
+        },
+        onColumnVisibilityChange: (updater) => {
+            if (onColumnVisibilityChange && columnVisibility) {
+                const nextColumnVisibility = typeof updater === 'function' ? updater(columnVisibility) : updater
+                onColumnVisibilityChange(nextColumnVisibility)
             }
         },
         getRowId: getRowId || ((row: any) => row.id), // Use prop or default to 'id'

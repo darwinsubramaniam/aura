@@ -82,14 +82,14 @@ export function DateRangeFilter({
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto", className)}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "w-full sm:w-[300px] justify-start text-left font-normal",
               !date && "text-muted-foreground"
             )}
           >
@@ -120,7 +120,7 @@ export function DateRangeFilter({
         </PopoverContent>
       </Popover>
       <Select onValueChange={handlePresetChange}>
-        <SelectTrigger className="w-[120px]">
+        <SelectTrigger className="w-full sm:w-[120px]">
           <SelectValue placeholder="Presets" />
         </SelectTrigger>
         <SelectContent>
