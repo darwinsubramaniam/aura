@@ -2,6 +2,13 @@ import { RowId, StringRowId } from "./common";
 
 export type RampKind = "deposit" | "withdraw";
 
+export type SortDirection = "asc" | "desc";
+
+export interface SortOptions {
+    column?: string;
+    direction?: SortDirection;
+}
+
 export interface CreateFiatRamp {
     fiat_id: RowId;
     fiat_amount: number;

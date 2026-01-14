@@ -1,5 +1,5 @@
 import { StringRowId } from "@/lib/models/common";
-import { CreateFiatRamp, FiatRampPagination, UpdateFiatRamp } from "@/lib/models/fiatRamp";
+import { CreateFiatRamp, FiatRampPagination, UpdateFiatRamp, SortOptions } from "@/lib/models/fiatRamp";
 import { invoke } from "@tauri-apps/api/core";
 import { format } from "date-fns";
 
@@ -35,10 +35,11 @@ export class FiatRampCommand {
      * @param limit Optional limit for pagination
      * @param offset Optional offset for pagination
      * @param query Optional query for search
+     * @param sort Optional sorting options
      * @returns FiatRampPagination
      */
-    public static get(limit?: number, offset?: number, query?: string) {
-        return invoke<FiatRampPagination>(FiatRampCommandList.GET, { limit, offset, query });
+    public static get(limit?: number, offset?: number, query?: string, sort?: SortOptions) {
+        return invoke<FiatRampPagination>(FiatRampCommandList.GET, { limit, offset, query, sort });
     }
 
     /**

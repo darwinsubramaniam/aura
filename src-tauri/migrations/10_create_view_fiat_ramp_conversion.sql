@@ -37,7 +37,6 @@ FROM (
                     fiat_ramp
                     JOIN fiat ON fiat.id = fiat_id
                     LEFT JOIN fiat_exchange_rate ON fiat_exchange_rate.date = ramp_date
-                    AND fiat_exchange_rate.base_fiat_id = fiat_ramp.fiat_id
                     JOIN fiat as default_fiat ON default_fiat.id = user_settings.default_fiat_id
                     JOIN user_settings ON user_settings.id = 1
             ) as t1

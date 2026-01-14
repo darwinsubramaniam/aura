@@ -5,14 +5,10 @@ use anyhow::Result;
 use chrono::NaiveDate;
 
 #[tauri::command]
-async fn get_fiat_rate(
-    db: tauri::State<'_, Db>,
-    base_fiat_id: i64,
-    date: &NaiveDate,
-) -> Result<FiatExchangeRate> {
+async fn get_fiat_rate(db: tauri::State<'_, Db>, date: &NaiveDate) -> Result<FiatExchangeRate> {
     let exchange_api = FrankfurterExchangerApi::default();
 
-    let rate = get_rate(&db, &exchange_api, base_fiat_id, date, None).await?;
+    let rate = get_rate(&db, &exchange_api, date, None).await?;
 
     Ok(rate)
 }

@@ -1,6 +1,7 @@
 pub mod command;
 use crate::db::StringRowId;
 use crate::fiat::FiatService;
+use crate::fiat_exchanger::frankfurter_exchanger::FrankfurterExchangerApi;
 use crate::{db::Db, fiat_exchanger::FiatExchanger};
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
@@ -33,15 +34,16 @@ struct MissingRate {
 const MAX_RETRIES: i32 = 5;
 
 // Get the rate for a specific fiat and date
+// In FiatExchangeRate Table the base_fiat_id is the id of the USD dollar
 pub async fn get_rate<A: FiatExchanger>(
     db: &Db,
     exchange_api: &A,
-    base_fiat_id: i64,
     date: &NaiveDate,
     fiat_ramp_id: Option<&StringRowId>,
 ) -> Result<FiatExchangeRate> {
+    let usd_fiat = FiatService::<FrankfurterExchangerApi>::get_fiat_by_symbol(db, "USD").await?;
     // 1. Check DB first
-    let db_result = sqlx::query_as::<sqlx::Sqlite, FiatExchangeRate>(
+    let result = sqlx::query_as::<sqlx::Sqlite, FiatExchangeRate>(
         r#"
         SELECT
         fiat_exchange_rate.*,
@@ -53,12 +55,12 @@ pub async fn get_rate<A: FiatExchanger>(
         AND fiat_exchange_rate.date = ?
         "#,
     )
-    .bind(base_fiat_id)
+    .bind(&usd_fiat.id)
     .bind(date)
     .fetch_one(&db.0)
     .await;
 
-    if let Ok(rate) = db_result {
+    if let Ok(rate) = result {
         // Rate Exists
         // If exact match (not estimated), and we have a ramp_id, ensure we are NOT in the queue.
         // Actually, even if estimated, if we found it in DB, we use it.
@@ -74,7 +76,7 @@ pub async fn get_rate<A: FiatExchanger>(
             // Rate is estimated.
             // If ramp_id provided, ensure it's in the queue for THIS date/fiat (handling the update case).
             if let Some(id) = fiat_ramp_id {
-                add_to_missing_queue(db, id, base_fiat_id, date, Some("Using estimated rate"))
+                add_to_missing_queue(db, id, usd_fiat.id, date, Some("Using estimated rate"))
                     .await
                     .ok();
             }
@@ -84,11 +86,11 @@ pub async fn get_rate<A: FiatExchanger>(
     }
 
     // 2. Not found in DB, fetch from API
-    let base_fiat = FiatService::<A>::get_fiat_by_id(db, base_fiat_id)
+    let usd_fiat = FiatService::<A>::get_fiat_by_id(db, usd_fiat.id)
         .await
         .context("failed to get fiat by id")?;
-    let base_symbol = base_fiat.symbol;
-    let base_name = base_fiat.name;
+    let base_symbol = usd_fiat.symbol;
+    let base_name = usd_fiat.name;
 
     // Call API
     let api_result = exchange_api
@@ -104,11 +106,10 @@ pub async fn get_rate<A: FiatExchanger>(
 
             if diff == 0 {
                 // Exact match
-                let fiat_rate =
-                    insert_rate(db, base_fiat_id, date, &api_rates.rates, false).await?;
+                let fiat_rate = insert_rate(db, usd_fiat.id, date, &api_rates.rates, false).await?;
 
                 // Success - remove from missing queue for ALL ramps waiting for this rate
-                remove_from_missing_queue_by_rate(db, base_fiat_id, date)
+                remove_from_missing_queue_by_rate(db, usd_fiat.id, date)
                     .await
                     .ok();
                 // Also explicitly remove for this ramp_id (just in case it was waiting for a diff date before)
@@ -118,7 +119,7 @@ pub async fn get_rate<A: FiatExchanger>(
 
                 Ok(FiatExchangeRate {
                     id: fiat_rate.id,
-                    base_fiat_id,
+                    base_fiat_id: usd_fiat.id,
                     symbol: base_symbol,
                     name: base_name,
                     date: *date,
@@ -128,14 +129,14 @@ pub async fn get_rate<A: FiatExchanger>(
             } else if diff == 1 {
                 // Fallback (1 day old)
                 // Insert into DB as *estimated*, storing it under the requested `date`
-                let fiat_rate = insert_rate(db, base_fiat_id, date, &api_rates.rates, true).await?;
+                let fiat_rate = insert_rate(db, usd_fiat.id, date, &api_rates.rates, true).await?;
 
                 // Add to missing queue to retry later for exact data
                 if let Some(id) = fiat_ramp_id {
                     add_to_missing_queue(
                         db,
                         id,
-                        base_fiat_id,
+                        usd_fiat.id,
                         date,
                         Some("Fallback: 1 day difference"),
                     )
@@ -144,7 +145,7 @@ pub async fn get_rate<A: FiatExchanger>(
 
                 Ok(FiatExchangeRate {
                     id: fiat_rate.id,
-                    base_fiat_id,
+                    base_fiat_id: usd_fiat.id,
                     symbol: base_symbol,
                     name: base_name,
                     date: *date,
@@ -155,7 +156,7 @@ pub async fn get_rate<A: FiatExchanger>(
                 // Too old (> 1 day)
                 let msg = format!("Rate too old. Gap: {} days", diff);
                 if let Some(id) = fiat_ramp_id {
-                    add_to_missing_queue(db, id, base_fiat_id, date, Some(&msg)).await?;
+                    add_to_missing_queue(db, id, usd_fiat.id, date, Some(&msg)).await?;
                 }
                 Err(anyhow::anyhow!(msg))
             }
@@ -163,7 +164,7 @@ pub async fn get_rate<A: FiatExchanger>(
         Err(e) => {
             // API Failure
             if let Some(id) = fiat_ramp_id {
-                add_to_missing_queue(db, id, base_fiat_id, date, Some(&e.to_string())).await?;
+                add_to_missing_queue(db, id, usd_fiat.id, date, Some(&e.to_string())).await?;
             }
             Err(e.into())
         }
@@ -263,6 +264,9 @@ async fn insert_rate(
 }
 
 // Helper: Add to Missing Queue (Upsert based on Ramp ID)
+// - If fiat_ramp_id exists with same base_fiat_id AND date: only increment error_count
+// - If fiat_ramp_id exists with different base_fiat_id OR date: insert new values and reset error_count
+// - If fiat_ramp_id doesn't exist: insert new record
 async fn add_to_missing_queue(
     db: &Db,
     fiat_ramp_id: &str,
@@ -270,24 +274,30 @@ async fn add_to_missing_queue(
     date: &NaiveDate,
     error_msg: Option<&str>,
 ) -> Result<()> {
-    // If we are adding/updating for a ramp, we update the DATE and FIAT to the new requirements.
-    // And reset error count if the requirements changed (handled by logic above? No, we should reset if we are upserting a new requirement).
-    // Actually, simple upsert:
-    // If ID exists -> Update to new Date/Fiat.
-    // If not -> Insert.
-    sqlx::query("
+    sqlx::query(
+        "
         INSERT INTO fiat_rate_missing (fiat_ramp_id, base_fiat_id, date, error_count, last_error_msg, last_attempt_at)
         VALUES (?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(fiat_ramp_id) DO UPDATE SET
-            base_fiat_id = excluded.base_fiat_id,
-            date = excluded.date,
+            base_fiat_id = CASE
+                WHEN fiat_rate_missing.base_fiat_id = excluded.base_fiat_id AND fiat_rate_missing.date = excluded.date
+                THEN fiat_rate_missing.base_fiat_id
+                ELSE excluded.base_fiat_id
+            END,
+            date = CASE
+                WHEN fiat_rate_missing.base_fiat_id = excluded.base_fiat_id AND fiat_rate_missing.date = excluded.date
+                THEN fiat_rate_missing.date
+                ELSE excluded.date
+            END,
             error_count = CASE
-                WHEN fiat_rate_missing.base_fiat_id = excluded.base_fiat_id AND fiat_rate_missing.date = excluded.date THEN fiat_rate_missing.error_count + 1
+                WHEN fiat_rate_missing.base_fiat_id = excluded.base_fiat_id AND fiat_rate_missing.date = excluded.date
+                THEN fiat_rate_missing.error_count + 1
                 ELSE 1
             END,
             last_error_msg = excluded.last_error_msg,
             last_attempt_at = CURRENT_TIMESTAMP
-    ")
+        ",
+    )
     .bind(fiat_ramp_id)
     .bind(base_fiat_id)
     .bind(date)
@@ -433,7 +443,6 @@ mod tests {
         let rate = get_rate(
             &db,
             &mock_frankfurt_api,
-            1,
             &NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
             None,
         )
@@ -479,7 +488,6 @@ mod tests {
         let rate = get_rate(
             &db,
             &mock_frankfurt_api,
-            1,
             &request_date,
             Some(&ramp_id.to_string()),
         )
@@ -537,7 +545,6 @@ mod tests {
         let rate = get_rate(
             &db,
             &mock_frankfurt_api,
-            1,
             &request_date,
             Some(&ramp_id.to_string()),
         )

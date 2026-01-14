@@ -19,10 +19,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { ColumnDef, PaginationState, RowSelectionState, SortingState } from "@tanstack/react-table"
 import { DataTable } from "@/components/ui/data-table"
-import { Pencil, Trash, Clock } from "lucide-react"
+import { Pencil, Trash, Clock, ArrowUpDown } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { FiatRampView } from '@/lib/models/fiatRamp';
+import { FiatRampView, SortOptions, SortDirection } from '@/lib/models/fiatRamp';
 import { FiatRampCommand } from '@/lib/services/funding/fiatRamp.command';
 
 
@@ -52,13 +52,22 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
     const loadData = useCallback(() => {
         setLoading(true);
         const offset = pagination.pageIndex * pagination.pageSize;
-        FiatRampCommand.get(pagination.pageSize, offset, globalFilter)
+        
+        // Convert tanstack sorting state to backend SortOptions
+        const sortOptions: SortOptions | undefined = sorting.length > 0
+            ? {
+                column: sorting[0].id,
+                direction: sorting[0].desc ? 'desc' as SortDirection : 'asc' as SortDirection,
+            }
+            : undefined;
+
+        FiatRampCommand.get(pagination.pageSize, offset, globalFilter, sortOptions)
             .then((res) => {
                 setFunding(res.fiat_ramps);
                 setTotalRecords(res.total_count);
                 setLoading(false);
             });
-    }, [pagination.pageIndex, pagination.pageSize, globalFilter]);
+    }, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting]);
 
     useEffect(() => {
         loadData();
@@ -132,7 +141,18 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
             },
             {
                 accessorKey: "ramp_date",
-                header: "On (Date)",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="-ml-4"
+                        >
+                            On (Date)
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
                 cell: ({ row }) => {
                     const date = row.getValue("ramp_date") as string;
                     const isEstimated = row.original.is_estimated;
@@ -173,13 +193,32 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
                 cell: ({ row }) => {
                     const amount = row.original.converted_amount;
                     const symbol = row.original.to_fiat_symbol;
+                    const fromSymbol = row.original.from_fiat_symbol;
+                    const conversionRate = row.original.conversion_rate;
+
                     if (amount === null || amount === undefined) return <div className="text-muted-foreground">-</div>;
                     
                     const formatted = new Intl.NumberFormat("en-US", {
                         style: "currency",
-                        currency: symbol || "USD", // Fallback, though view should provide it
+                        currency: symbol || "USD",
                     }).format(amount)
-                    return <div className="font-medium text-emerald-600">{formatted}</div>
+
+                    if (conversionRate === null || conversionRate === undefined) {
+                        return <div className="font-medium text-emerald-600">{formatted}</div>;
+                    }
+
+                    return (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="font-medium text-emerald-600 cursor-help underline decoration-dotted underline-offset-2">
+                                    {formatted}
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>1 {fromSymbol} = {conversionRate.toFixed(4)} {symbol}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    );
                 },
             },
             {
