@@ -89,7 +89,7 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
         trigger: "axis" as const,
       },
       legend: {
-        data: ["Converted Amount"],
+        show: false,
       },
       xAxis: {
         type: "category" as const,
