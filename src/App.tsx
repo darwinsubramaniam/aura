@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import Sidebar from "./components/common/Sidebar";
 import Funding from "./components/funding/funding";
+import FundingHistoryPage from "./components/funding/funding-history-page";
 import UserSetting from "./components/user-settings/user-setting";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { PanelRightOpen } from "lucide-react";
 const AppRoutes = [
   { path: "/", element: <Navigate to="/funding" replace /> },
   { path: "/funding", element: <Funding /> },
+  { path: "/funding-history", element: <FundingHistoryPage /> },
   { path: "/user-settings", element: <UserSetting /> },
 ];
 
@@ -25,9 +27,9 @@ function AppContent() {
         onHide={() => setSidebarVisible(false)}
       />
 
-      {/* Navbar with macOS traffic light padding */}
+      {/* Navbar with macOS traffic light padding and iOS safe area */}
       <div
-        className="sticky top-0 z-50 bg-background pt-8 pb-4 px-4 shadow-sm flex items-center gap-2"
+        className="sticky top-0 z-50 bg-background pt-[max(2rem,env(safe-area-inset-top))] pb-4 px-4 shadow-sm flex items-center gap-2"
         data-tauri-drag-region
       >
         <Button onClick={() => setSidebarVisible(true)} variant="outline">

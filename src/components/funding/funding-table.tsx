@@ -43,6 +43,7 @@ import {
 } from "@/lib/models/fiatRamp";
 import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 
+
 interface FundingTableProps {
   refreshTrigger?: number;
   onDataChange?: () => void;

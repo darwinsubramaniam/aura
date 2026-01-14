@@ -154,7 +154,7 @@ export default function FundingChartSummary({ refreshTrigger, startDate, endDate
 
   if (fiatRamps.length === 0) {
     return (
-      <div className="h-[400px] w-full flex flex-col items-center justify-center text-muted-foreground border rounded-lg bg-card/50 border-dashed">
+      <div className="h-[400px] w-full flex flex-col items-center justify-center text-muted-foreground border rounded-lg bg-card/50 border-dashed text-center p-4">
         <Inbox className="h-10 w-10 mb-2 opacity-50" />
         <p className="text-lg font-medium">No Funding Activity</p>
         <p className="text-sm">There is no funding data available to display in the chart.</p>
