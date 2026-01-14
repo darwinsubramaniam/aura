@@ -1,5 +1,5 @@
 import { StringRowId } from "@/lib/models/common";
-import { CreateFiatRamp, FiatRampPagination, UpdateFiatRamp, SortOptions } from "@/lib/models/fiatRamp";
+import { CreateFiatRamp, FiatRampPagination, UpdateFiatRamp, SortOptions, FiatRampSummary } from "@/lib/models/fiatRamp";
 import { invoke } from "@tauri-apps/api/core";
 import { format } from "date-fns";
 
@@ -7,7 +7,9 @@ enum FiatRampCommandList {
     CREATE = 'create_fiat_ramp',
     GET = 'get_fiat_ramps',
     UPDATE = 'update_fiat_ramp',
-    DELETE = 'delete_fiat_ramp'
+    DELETE = 'delete_fiat_ramp',
+    GET_SUMMARY = 'get_fiat_ramp_summary',
+    GET_DATE_RANGE = 'get_fiat_ramp_date_range'
 }
 
 
@@ -36,10 +38,19 @@ export class FiatRampCommand {
      * @param offset Optional offset for pagination
      * @param query Optional query for search
      * @param sort Optional sorting options
+     * @param startDate Optional start date filter
+     * @param endDate Optional end date filter
      * @returns FiatRampPagination
      */
-    public static get(limit?: number, offset?: number, query?: string, sort?: SortOptions) {
-        return invoke<FiatRampPagination>(FiatRampCommandList.GET, { limit, offset, query, sort });
+    public static get(limit?: number, offset?: number, query?: string, sort?: SortOptions, startDate?: Date | null, endDate?: Date | null) {
+        return invoke<FiatRampPagination>(FiatRampCommandList.GET, { 
+            limit, 
+            offset, 
+            query, 
+            sort,
+            startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+            endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined
+        });
     }
 
     /**
@@ -67,5 +78,26 @@ export class FiatRampCommand {
      */
     public static delete(id: StringRowId) {
         return invoke<number>(FiatRampCommandList.DELETE, { id });
+    }
+
+    /**
+     * Get fiat ramp summary
+     * @param startDate Optional start date filter
+     * @param endDate Optional end date filter
+     * @returns FiatRampSummary
+     */
+    public static getSummary(startDate?: Date | null, endDate?: Date | null) {
+        return invoke<FiatRampSummary>(FiatRampCommandList.GET_SUMMARY, {
+            startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+            endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined
+        });
+    }
+
+    /**
+     * Get the min and max date of all fiat ramps
+     * @returns [string | null, string | null] (min_date, max_date)
+     */
+    public static getDateRange() {
+        return invoke<[string | null, string | null]>(FiatRampCommandList.GET_DATE_RANGE);
     }
 }

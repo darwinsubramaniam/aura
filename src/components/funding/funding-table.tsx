@@ -46,9 +46,11 @@ import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 interface FundingTableProps {
   refreshTrigger?: number;
   onDataChange?: () => void;
+  startDate?: Date | null;
+  endDate?: Date | null;
 }
 
-export default function FundingTable({ refreshTrigger, onDataChange }: FundingTableProps) {
+export default function FundingTable({ refreshTrigger, onDataChange, startDate, endDate }: FundingTableProps) {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 5,
@@ -90,12 +92,14 @@ export default function FundingTable({ refreshTrigger, onDataChange }: FundingTa
       offset,
       globalFilter,
       sortOptions,
+      startDate,
+      endDate
     ).then((res) => {
       setFunding(res.fiat_ramps);
       setTotalRecords(res.total_count);
       setLoading(false);
     });
-  }, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting]);
+  }, [pagination.pageIndex, pagination.pageSize, globalFilter, sorting, startDate, endDate]);
 
   useEffect(() => {
     loadData();

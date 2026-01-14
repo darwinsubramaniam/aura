@@ -39,12 +39,34 @@ pub async fn get_fiat_ramps(
     offset: Option<u32>,
     query: Option<String>,
     sort: Option<SortOptions>,
+    start_date: Option<chrono::NaiveDate>,
+    end_date: Option<chrono::NaiveDate>,
 ) -> Result<FiatRampPagination, String> {
     let limit = limit.unwrap_or(50);
     let offset = offset.unwrap_or(0);
-    FiatRampService::get(limit, offset, query, sort, &db)
+    FiatRampService::get(limit, offset, query, sort, start_date, end_date, &db)
         .await
         .map_err(|e| format!("failed to get all fiat ramps: {e}"))
+}
+
+/// Get fiat ramp summary
+#[tauri::command]
+pub async fn get_fiat_ramp_summary(
+    db: State<'_, Db>,
+    start_date: Option<chrono::NaiveDate>,
+    end_date: Option<chrono::NaiveDate>,
+) -> Result<crate::fiat_ramp::FiatRampSummary, String> {
+    FiatRampService::get_summary(start_date, end_date, &db)
+        .await
+        .map_err(|e| format!("failed to get fiat ramp summary: {e}"))
+}
+
+/// Get fiat ramp date range (min and max date)
+#[tauri::command]
+pub async fn get_fiat_ramp_date_range(
+    db: State<'_, Db>,
+) -> Result<(Option<chrono::NaiveDate>, Option<chrono::NaiveDate>), String> {
+    FiatRampService::get_date_range(&db).await
 }
 
 /// Update a fiat ramp

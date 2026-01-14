@@ -16,9 +16,11 @@ type ChartType = "bar" | "line";
 
 interface FundingChartSummaryProps {
   refreshTrigger?: number;
+  startDate?: Date | null;
+  endDate?: Date | null;
 }
 
-export default function FundingChartSummary({ refreshTrigger }: FundingChartSummaryProps) {
+export default function FundingChartSummary({ refreshTrigger, startDate, endDate }: FundingChartSummaryProps) {
   const [fiatRamps, setFiatRamps] = useState<FiatRampView[]>([]);
   const [targetCurrency, setTargetCurrency] = useState<Fiat | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
@@ -34,7 +36,7 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
       setTargetCurrency(target || null);
 
       // Load all fiat ramps (no pagination for chart)
-      const result = await FiatRampCommand.get(1000, 0);
+      const result = await FiatRampCommand.get(1000, 0, undefined, undefined, startDate, endDate);
       setFiatRamps(result.fiat_ramps);
     } catch (error) {
       console.error("Failed to load chart data:", error);
@@ -45,7 +47,7 @@ export default function FundingChartSummary({ refreshTrigger }: FundingChartSumm
 
   useEffect(() => {
     loadData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, startDate, endDate]);
 
   // Aggregate converted amounts by date
   const chartData = useMemo(() => {

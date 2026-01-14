@@ -55,6 +55,7 @@ pub struct FiatRampPagination {
     pub fiat_ramps: Vec<FiatRampWithConversionView>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FiatRampSummary {
     pub total_deposit: f64,
     pub total_withdraw: f64,
@@ -138,6 +139,8 @@ impl FiatRampService {
         offset: u32,
         query: Option<String>,
         sort: Option<SortOptions>,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
         db: &Db,
     ) -> Result<FiatRampPagination, String> {
         let query_filter = query.unwrap_or_default();
@@ -145,16 +148,22 @@ impl FiatRampService {
             r#"
             SELECT COUNT(*) FROM fiat_ramp_view
             WHERE
-            via_exchange LIKE ?
+            (via_exchange LIKE ?
             OR kind LIKE ?
             OR CAST(fiat_amount AS TEXT) LIKE ?
-            OR from_fiat_symbol LIKE ?
+            OR from_fiat_symbol LIKE ?)
+            AND (ramp_date >= ? OR ? IS NULL)
+            AND (ramp_date <= ? OR ? IS NULL)
         "#,
         )
         .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
+        .bind(start_date)
+        .bind(start_date)
+        .bind(end_date)
+        .bind(end_date)
         .fetch_one(&db.0)
         .await
         .map_err(|e| format!("failed to get total count: {e}"))?;
@@ -186,10 +195,12 @@ impl FiatRampService {
         let sql = format!(
             r#"
                 SELECT * FROM fiat_ramp_view
-                WHERE via_exchange LIKE ?
+                WHERE (via_exchange LIKE ?
                 OR kind LIKE ?
                 OR CAST(fiat_amount AS TEXT) LIKE ?
-                OR from_fiat_symbol LIKE ?
+                OR from_fiat_symbol LIKE ?)
+                AND (ramp_date >= ? OR ? IS NULL)
+                AND (ramp_date <= ? OR ? IS NULL)
                 {}
                 LIMIT ?
                 OFFSET ?
@@ -202,6 +213,10 @@ impl FiatRampService {
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
+            .bind(start_date)
+            .bind(start_date)
+            .bind(end_date)
+            .bind(end_date)
             .bind(limit)
             .bind(offset)
             .fetch_all(&db.0)
@@ -211,6 +226,77 @@ impl FiatRampService {
             total_count,
             fiat_ramps: result,
         })
+    }
+
+    pub async fn get_summary(
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+        db: &Db,
+    ) -> Result<FiatRampSummary, String> {
+        let (total_deposit, total_withdraw): (Option<f64>, Option<f64>) = sqlx::query_as(
+            r#"
+            SELECT
+                SUM(CASE WHEN kind = 'deposit' THEN converted_amount ELSE 0.0 END) as total_deposit,
+                SUM(CASE WHEN kind = 'withdraw' THEN converted_amount ELSE 0.0 END) as total_withdraw
+            FROM fiat_ramp_view
+            WHERE (ramp_date >= ? OR ? IS NULL)
+            AND (ramp_date <= ? OR ? IS NULL)
+            "#,
+        )
+        .bind(start_date)
+        .bind(start_date)
+        .bind(end_date)
+        .bind(end_date)
+        .fetch_one(&db.0)
+        .await
+        .map_err(|e| format!("failed to get summary: {e}"))?;
+
+        let target_fiat_info = sqlx::query(
+            r#"
+            SELECT symbol, name
+            FROM fiat
+            JOIN user_settings ON user_settings.default_fiat_id = fiat.id
+            WHERE user_settings.id = 1
+            "#,
+        )
+        .fetch_optional(&db.0)
+        .await
+        .map_err(|e| format!("failed to get target fiat info: {e}"))?;
+
+        let (fiat_symbol, fiat_name) = match target_fiat_info {
+            Some(row) => {
+                use sqlx::Row;
+                (row.get::<String, _>("symbol"), row.get::<String, _>("name"))
+            }
+            None => ("?".to_string(), "Unknown".to_string()),
+        };
+
+        Ok(FiatRampSummary {
+            total_deposit: total_deposit.unwrap_or(0.0),
+            total_withdraw: total_withdraw.unwrap_or(0.0),
+            fiat_symbol,
+            fiat_name,
+            data: HashMap::new(),
+        })
+    }
+
+    /// Get the min and max date of all fiat ramps
+    pub async fn get_date_range(db: &Db) -> Result<(Option<NaiveDate>, Option<NaiveDate>), String> {
+        let row = sqlx::query(
+            r#"
+            SELECT MIN(ramp_date) as min_date, MAX(ramp_date) as max_date
+            FROM fiat_ramp
+            "#
+        )
+        .fetch_one(&db.0)
+        .await
+        .map_err(|e| format!("failed to get date range: {e}"))?;
+
+        use sqlx::Row;
+        let min_date: Option<NaiveDate> = row.try_get("min_date").unwrap_or(None);
+        let max_date: Option<NaiveDate> = row.try_get("max_date").unwrap_or(None);
+
+        Ok((min_date, max_date))
     }
 
     /// Update the fiat ramp
@@ -356,7 +442,9 @@ mod tests {
             let _ = FiatRampService::create(create_fiat_ramp, &db).await;
         }
 
-        let result = FiatRampService::get(10, 0, None, None, &db).await.unwrap();
+        let result = FiatRampService::get(10, 0, None, None, None, None, &db)
+            .await
+            .unwrap();
         assert!(
             result.fiat_ramps.len() == 10,
             "After offset 0, expected 10 fiat ramps, got {}",
@@ -368,7 +456,9 @@ mod tests {
             result.total_count
         );
 
-        let result = FiatRampService::get(10, 10, None, None, &db).await.unwrap();
+        let result = FiatRampService::get(10, 10, None, None, None, None, &db)
+            .await
+            .unwrap();
         assert!(
             result.fiat_ramps.len() == 1,
             "After offset 10, expected 1 fiat ramp, got {}",
@@ -413,7 +503,7 @@ mod tests {
         assert!(result.unwrap() == 1);
 
         // check if the update was successful
-        let result = FiatRampService::get(1, 0, None, None, &db).await;
+        let result = FiatRampService::get(1, 0, None, None, None, None, &db).await;
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(result.fiat_ramps.len() == 1);

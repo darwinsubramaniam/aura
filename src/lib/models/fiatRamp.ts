@@ -48,3 +48,10 @@ export interface FiatRampPagination {
   total_count: number;
   fiat_ramps: FiatRampView[];
 }
+
+export interface FiatRampSummary {
+  total_deposit: number;
+  total_withdraw: number;
+  fiat_symbol: string;
+  fiat_name: string;
+}
