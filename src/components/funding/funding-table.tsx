@@ -176,7 +176,18 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
             },
             {
                 accessorKey: "fiat_amount",
-                header: "Fiat Amount",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="-ml-4"
+                        >
+                            Fiat Amount
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
                 cell: ({ row }) => {
                     const amount = parseFloat(row.getValue("fiat_amount"))
                     const symbol = row.original.from_fiat_symbol || "USD";
@@ -189,7 +200,18 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
             },
             {
                 accessorKey: "converted_amount",
-                header: targetSymbol ? `Converted (${targetSymbol})` : "Converted",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="-ml-4"
+                        >
+                            {targetSymbol ? `Converted (${targetSymbol})` : "Converted"}
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
                 cell: ({ row }) => {
                     const amount = row.original.converted_amount;
                     const symbol = row.original.to_fiat_symbol;
@@ -223,11 +245,33 @@ export default function FundingTable({ refreshTrigger }: FundingTableProps) {
             },
             {
                 accessorKey: "via_exchange",
-                header: "Via Exchange",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="-ml-4"
+                        >
+                            Via Exchange
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
             },
             {
                 accessorKey: "kind",
-                header: "Kind",
+                header: ({ column }) => {
+                    return (
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="-ml-4"
+                        >
+                            Kind
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    )
+                },
                 cell: ({ row }) => {
                     return <div className="capitalize">{row.getValue("kind")}</div>
                 },
