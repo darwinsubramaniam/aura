@@ -7,11 +7,23 @@ export function useIsMobile() {
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    
+    // Enhanced mobile detection to support landscape modes on mobile devices
+    const checkMobile = () => {
+      const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || 
+                            (userAgent.includes("Mac") && "ontouchend" in document); // iPadOS 13+ detection
+      
+      return window.innerWidth < MOBILE_BREAKPOINT || isMobileDevice;
     }
+
+    const onChange = () => {
+      setIsMobile(checkMobile())
+    }
+    
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    setIsMobile(checkMobile())
+    
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
