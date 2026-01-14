@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NotificationContextType {
     showSuccess: (message: string, summary?: string) => void;
@@ -12,6 +13,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const isMobile = useIsMobile();
 
     const showSuccess = (message: string, summary: string = 'Success') => {
         toast.success(message, {
@@ -35,7 +37,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return (
         <NotificationContext.Provider value={{ showSuccess, showError, showInfo, showWarn }}>
-            <Toaster position="top-right" closeButton={true} />
+            <Toaster position={isMobile ? "top-center" : "top-right"} closeButton={true} />
             {children}
         </NotificationContext.Provider>
     );
