@@ -38,6 +38,7 @@ interface DataTableProps<TData, TValue> {
     searchValue?: string
     onSearchChange?: (value: string) => void
     getRowId?: (row: TData) => string
+    noResultsMessage?: React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -56,6 +57,7 @@ export function DataTable<TData, TValue>({
     searchValue,
     onSearchChange,
     getRowId,
+    noResultsMessage = "No results.",
 }: DataTableProps<TData, TValue>) {
 
     // If we manage pagination server side, we rely on the props.
@@ -157,7 +159,7 @@ export function DataTable<TData, TValue>({
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results.
+                                    {noResultsMessage}
                                 </TableCell>
                             </TableRow>
                         )}
