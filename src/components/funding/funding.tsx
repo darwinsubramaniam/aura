@@ -2,6 +2,9 @@ import { useState } from "react";
 import FundingTable from "./funding-table";
 import FundingCreateForm from "./funding-create";
 import FundingChartSummary from "./funding-chart-summary";
+import FundingSummaryCards from "./funding-summary-cards";
+import { DateRangeFilter } from "@/components/common/date-range-filter";
+import { useFundingDateFilter } from "@/hooks/use-funding-date-filter";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +18,7 @@ import { Plus } from "lucide-react";
 export default function Funding() {
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { dateRange, setDateRange } = useFundingDateFilter();
 
   const onCreated = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -29,16 +33,33 @@ export default function Funding() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-between items-center">
+        <DateRangeFilter date={dateRange} setDate={setDateRange} />
         <Button onClick={() => setCreateDialogVisible(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Deposit / Withdraw
         </Button>
       </div>
       <div className="mb-4">
-        <FundingChartSummary refreshTrigger={refreshTrigger} />
+        <FundingSummaryCards
+          refreshTrigger={refreshTrigger}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+        />
       </div>
-      <FundingTable refreshTrigger={refreshTrigger} onDataChange={onTableDataChange} />
+      <div className="mb-4">
+        <FundingChartSummary
+          refreshTrigger={refreshTrigger}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+        />
+      </div>
+      <FundingTable 
+        refreshTrigger={refreshTrigger} 
+        onDataChange={onTableDataChange}
+        startDate={dateRange?.from}
+        endDate={dateRange?.to}
+      />
 
       <Dialog open={createDialogVisible} onOpenChange={setCreateDialogVisible}>
         <DialogContent>

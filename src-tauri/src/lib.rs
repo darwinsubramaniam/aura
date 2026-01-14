@@ -50,7 +50,9 @@ pub fn run() {
                 let db_for_task = Db(db.0.clone());
                 tauri::async_runtime::spawn(async move {
                     let api = FrankfurterExchangerApi::default();
-                    if let Err(e) = crate::fiat_rate::process_missing_rates(&db_for_task, &api).await {
+                    if let Err(e) =
+                        crate::fiat_rate::process_missing_rates(&db_for_task, &api).await
+                    {
                         eprintln!("Failed to process missing rates: {}", e);
                     }
                 });
@@ -68,6 +70,8 @@ pub fn run() {
             fiat_ramp_command::get_fiat_ramps,
             fiat_ramp_command::update_fiat_ramp,
             fiat_ramp_command::delete_fiat_ramp,
+            fiat_ramp_command::get_fiat_ramp_summary,
+            fiat_ramp_command::get_fiat_ramp_date_range,
             user_settings_command::get_user_settings,
             user_settings_command::update_user_settings,
         ])
