@@ -7,6 +7,7 @@ CREATE TABLE fiat_rate_missing (
     last_attempt_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (base_fiat_id, date),
     FOREIGN KEY (fiat_ramp_id) REFERENCES fiat_ramp (id) ON DELETE CASCADE,
     FOREIGN KEY (base_fiat_id) REFERENCES fiat (id)
 );

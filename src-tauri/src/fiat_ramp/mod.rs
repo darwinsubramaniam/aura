@@ -63,6 +63,22 @@ pub struct FiatRampSummary {
     pub data: HashMap<String, f64>,
 }
 
+/// Sorting direction for query results
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SortDirection {
+    Asc,
+    #[default]
+    Desc,
+}
+
+/// Sorting options for fiat ramp queries
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SortOptions {
+    pub column: Option<String>,
+    pub direction: Option<SortDirection>,
+}
+
 #[derive(Debug, FromRow, Serialize, Deserialize)]
 pub struct FiatRampWithConversionView {
     pub fiat_ramp_id: StringRowId,
@@ -121,6 +137,7 @@ impl FiatRampService {
         limit: u32,
         offset: u32,
         query: Option<String>,
+        sort: Option<SortOptions>,
         db: &Db,
     ) -> Result<FiatRampPagination, String> {
         let query_filter = query.unwrap_or_default();
@@ -141,26 +158,55 @@ impl FiatRampService {
         .fetch_one(&db.0)
         .await
         .map_err(|e| format!("failed to get total count: {e}"))?;
-        let result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
+
+        // Build ORDER BY clause with whitelisted columns
+        let order_by = match sort {
+            Some(SortOptions {
+                column: Some(col),
+                direction,
+            }) => {
+                // Whitelist allowed columns to prevent SQL injection
+                let valid_column = match col.as_str() {
+                    "ramp_date" => "ramp_date",
+                    "fiat_amount" => "fiat_amount",
+                    "converted_amount" => "converted_amount",
+                    "via_exchange" => "via_exchange",
+                    "kind" => "kind",
+                    _ => "ramp_date", // Default fallback
+                };
+                let dir = match direction.unwrap_or_default() {
+                    SortDirection::Asc => "ASC",
+                    SortDirection::Desc => "DESC",
+                };
+                format!("ORDER BY {} {}", valid_column, dir)
+            }
+            _ => "ORDER BY ramp_date DESC".to_string(), // Default sort
+        };
+
+        let sql = format!(
             r#"
                 SELECT * FROM fiat_ramp_view
                 WHERE via_exchange LIKE ?
                 OR kind LIKE ?
                 OR CAST(fiat_amount AS TEXT) LIKE ?
                 OR from_fiat_symbol LIKE ?
+                {}
                 LIMIT ?
                 OFFSET ?
             "#,
-        )
-        .bind(format!("%{}%", query_filter))
-        .bind(format!("%{}%", query_filter))
-        .bind(format!("%{}%", query_filter))
-        .bind(format!("%{}%", query_filter))
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&db.0)
-        .await
-        .map_err(|e| format!("failed to select from fiat_ramp_view: {e}"))?;
+            order_by
+        );
+
+        let result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(&sql)
+            .bind(format!("%{}%", query_filter))
+            .bind(format!("%{}%", query_filter))
+            .bind(format!("%{}%", query_filter))
+            .bind(format!("%{}%", query_filter))
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&db.0)
+            .await
+            .map_err(|e| format!("failed to select from fiat_ramp_view: {e}"))?;
         Ok(FiatRampPagination {
             total_count,
             fiat_ramps: result,
@@ -310,7 +356,7 @@ mod tests {
             let _ = FiatRampService::create(create_fiat_ramp, &db).await;
         }
 
-        let result = FiatRampService::get(10, 0, None, &db).await.unwrap();
+        let result = FiatRampService::get(10, 0, None, None, &db).await.unwrap();
         assert!(
             result.fiat_ramps.len() == 10,
             "After offset 0, expected 10 fiat ramps, got {}",
@@ -322,7 +368,7 @@ mod tests {
             result.total_count
         );
 
-        let result = FiatRampService::get(10, 10, None, &db).await.unwrap();
+        let result = FiatRampService::get(10, 10, None, None, &db).await.unwrap();
         assert!(
             result.fiat_ramps.len() == 1,
             "After offset 10, expected 1 fiat ramp, got {}",
@@ -367,7 +413,7 @@ mod tests {
         assert!(result.unwrap() == 1);
 
         // check if the update was successful
-        let result = FiatRampService::get(1, 0, None, &db).await;
+        let result = FiatRampService::get(1, 0, None, None, &db).await;
         assert!(result.is_ok());
         let result = result.unwrap();
         assert!(result.fiat_ramps.len() == 1);
