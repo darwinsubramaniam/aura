@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[]
@@ -32,6 +33,7 @@ interface DataTableProps<TData, TValue> {
     rowSelection?: RowSelectionState
     onRowSelectionChange?: (rowSelection: RowSelectionState) => void
     loading?: boolean
+    skeletonRowCount?: number
     searchKey?: string
     searchValue?: string
     onSearchChange?: (value: string) => void
@@ -49,6 +51,7 @@ export function DataTable<TData, TValue>({
     rowSelection,
     onRowSelectionChange,
     loading,
+    skeletonRowCount = 5,
     searchKey,
     searchValue,
     onSearchChange,
@@ -129,11 +132,15 @@ export function DataTable<TData, TValue>({
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Loading...
-                                </TableCell>
-                            </TableRow>
+                            Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
+                                <TableRow key={`skeleton-${rowIndex}`}>
+                                    {columns.map((_, colIndex) => (
+                                        <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                                            <Skeleton className="h-6 w-full" />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
                         ) : table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
