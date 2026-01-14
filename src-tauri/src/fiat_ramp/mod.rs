@@ -93,7 +93,13 @@ impl FiatRampService {
                 .await
                 .map_err(|e| format!("failed to begin transaction: {e}"))?;
 
-        sqlx::query("INSERT INTO fiat_ramp (id, fiat_id, fiat_amount, ramp_date, via_exchange, kind) VALUES (?, ?, ?, ?, ?, ?)")
+        sqlx::query(
+            r#"
+            INSERT INTO fiat_ramp
+            (id, fiat_id, fiat_amount, ramp_date, via_exchange, kind)
+            VALUES (?, ?, ?, ?, ?, ?)
+        "#,
+        )
         .bind(&id)
         .bind(create_fiat_ramp.fiat_id)
         .bind(create_fiat_ramp.fiat_amount)
@@ -118,25 +124,43 @@ impl FiatRampService {
         db: &Db,
     ) -> Result<FiatRampPagination, String> {
         let query_filter = query.unwrap_or_default();
-        let total_count = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_ramp_view WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR from_fiat_symbol LIKE ?")
-            .bind(format!("%{}%", query_filter))
-            .bind(format!("%{}%", query_filter))
-            .bind(format!("%{}%", query_filter))
-            .bind(format!("%{}%", query_filter))
-            .fetch_one(&db.0)
-            .await
-            .map_err(|e| format!("failed to get total count: {e}"))?;
-        let result =
-            sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>("SELECT * FROM fiat_ramp_view WHERE via_exchange LIKE ? OR kind LIKE ? OR CAST(fiat_amount AS TEXT) LIKE ? OR from_fiat_symbol LIKE ? LIMIT ? OFFSET ?")
-                .bind(format!("%{}%", query_filter))
-                .bind(format!("%{}%", query_filter))
-                .bind(format!("%{}%", query_filter))
-                .bind(format!("%{}%", query_filter))
-                .bind(limit)
-                .bind(offset)
-                .fetch_all(&db.0)
-                .await
-                .map_err(|e| format!("failed to select from fiat_ramp_view: {e}"))?;
+        let total_count = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) FROM fiat_ramp_view
+            WHERE
+            via_exchange LIKE ?
+            OR kind LIKE ?
+            OR CAST(fiat_amount AS TEXT) LIKE ?
+            OR from_fiat_symbol LIKE ?
+        "#,
+        )
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .fetch_one(&db.0)
+        .await
+        .map_err(|e| format!("failed to get total count: {e}"))?;
+        let result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
+            r#"
+                SELECT * FROM fiat_ramp_view
+                WHERE via_exchange LIKE ?
+                OR kind LIKE ?
+                OR CAST(fiat_amount AS TEXT) LIKE ?
+                OR from_fiat_symbol LIKE ?
+                LIMIT ?
+                OFFSET ?
+            "#,
+        )
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .bind(format!("%{}%", query_filter))
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&db.0)
+        .await
+        .map_err(|e| format!("failed to select from fiat_ramp_view: {e}"))?;
         Ok(FiatRampPagination {
             total_count,
             fiat_ramps: result,
@@ -151,16 +175,28 @@ impl FiatRampService {
                 .await
                 .map_err(|e| format!("failed to begin transaction: {e}"))?;
 
-        let result: SqliteQueryResult = sqlx::query("UPDATE fiat_ramp SET fiat_id = ?, fiat_amount = ?, ramp_date = ?, via_exchange = ?, kind = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(update_ramp.fiat_id)
-            .bind(update_ramp.fiat_amount)
-            .bind(update_ramp.ramp_date)
-            .bind(update_ramp.via_exchange)
-            .bind(update_ramp.kind)
-            .bind(update_ramp.id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| format!("failed to update fiat_ramp table: {e}"))?;
+        let result: SqliteQueryResult = sqlx::query(
+            r#"
+            UPDATE fiat_ramp
+            SET
+            fiat_id = ?,
+            fiat_amount = ?,
+            ramp_date = ?,
+            via_exchange = ?,
+            kind = ?,
+            updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        "#,
+        )
+        .bind(update_ramp.fiat_id)
+        .bind(update_ramp.fiat_amount)
+        .bind(update_ramp.ramp_date)
+        .bind(update_ramp.via_exchange)
+        .bind(update_ramp.kind)
+        .bind(update_ramp.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("failed to update fiat_ramp table: {e}"))?;
 
         tx.commit()
             .await
@@ -233,7 +269,7 @@ mod tests {
             .fetch_one(&db.0)
             .await
             .unwrap();
-            
+
         sqlx::query("INSERT OR REPLACE INTO user_settings (id, locale, default_fiat_id) VALUES (1, 'en', ?)")
             .bind(fiat_id)
             .execute(&db.0)
@@ -299,8 +335,7 @@ mod tests {
         );
 
         assert!(!result.fiat_ramps[0].from_fiat_symbol.is_empty());
-        let symbol = &result.fiat_ramps[0]
-            .from_fiat_symbol;
+        let symbol = &result.fiat_ramps[0].from_fiat_symbol;
         assert!(matches!(symbol.as_str(), "MYR" | "SGD"));
     }
 
@@ -471,8 +506,18 @@ mod tests {
         let db = init_db().await;
 
         // 1. Setup User Settings (Default USD)
-        let usd_id = sqlx::query_scalar::<_, i64>("INSERT INTO fiat (symbol, name) VALUES ('USD', 'US Dollar') RETURNING id").fetch_one(&db.0).await.unwrap();
-        let eur_id = sqlx::query_scalar::<_, i64>("INSERT INTO fiat (symbol, name) VALUES ('EUR', 'Euro') RETURNING id").fetch_one(&db.0).await.unwrap();
+        let usd_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO fiat (symbol, name) VALUES ('USD', 'US Dollar') RETURNING id",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
+        let eur_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO fiat (symbol, name) VALUES ('EUR', 'Euro') RETURNING id",
+        )
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
         sqlx::query("INSERT OR REPLACE INTO user_settings (id, locale, default_fiat_id) VALUES (1, 'en', ?)")
             .bind(usd_id)
             .execute(&db.0).await.unwrap();
@@ -502,7 +547,9 @@ mod tests {
         let view_result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(
             "SELECT * FROM fiat_ramp_view WHERE via_exchange = 'est_test'",
         )
-        .fetch_one(&db.0).await.unwrap();
+        .fetch_one(&db.0)
+        .await
+        .unwrap();
 
         assert_eq!(view_result.is_estimated, true);
     }
