@@ -36,19 +36,21 @@ A unified modal for entering data, with tabs for different activities.
     3.  User confirms.
     4.  **Result:** Updates `amount_remaining` on affected lots.
 
-### Tab D: Transfer / Bridge
+### Tab D: Transfer / Bridge / Wrap
 *   **Fields:** 
     *   Date
-    *   Asset
-    *   Source (From) - *Can be a Wallet or Network (e.g. "Polkadot Relay")*
-    *   Destination (To) - *Can be a Wallet or Network (e.g. "Acala Network")*
-    *   **Amount Sent** (e.g., 100.0 DOT)
-    *   **Fee** (e.g., 0.05 DOT) - *Bridge/XCM Fee*
-    *   **Amount Received** (calculated: 99.95 DOT)
-*   **Result:** 
-    *   Reduces Source Lot by "Amount Sent".
-    *   Creates New Lot at Destination with "Amount Received".
-    *   Preserves original Cost Basis (shifted to new lot).
+    *   Source (From)
+    *   **Source Asset** (e.g. ETH)
+    *   Destination (To)
+    *   **Destination Asset** (e.g. WETH) - *Defaults to Source Asset. If different, enables "Transformation" mode.*
+    *   **Amount Sent** (e.g., 1.0 ETH)
+    *   **Fee** (e.g., 0.005 ETH)
+    *   **Amount Received** (calculated: 0.995 WETH)
+    *   *Checkbox:* "Treat as Taxable Trade?" (If unchecked, acts as Transformation/Rollover).
+*   **Result (Transformation):** 
+    *   Reduces Source Lot.
+    *   Creates New Lot (new Asset ID).
+    *   **Copies** original Cost Basis & Date to new lot (No Tax Event).
 
 ## 4. Lot Management (Advanced Detail View)
 A specific page for power users to manage the tax lots directly.

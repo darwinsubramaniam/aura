@@ -15,19 +15,19 @@ This allows us to answer two distinct questions from the same data:
 ### Table: `crypto_acquisition`
 The source of truth for all assets entering the system.
 
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `TEXT (UUID)` | Unique identifier for the lot. |
-| `asset_id` | `TEXT` | Foreign key to `asset` table (e.g., 'BTC', 'ETH'). |
-| `amount_initial` | `REAL` | The original quantity acquired. **Immutable.** |
-| `amount_remaining` | `REAL` | The quantity currently held. Decreases when sold. |
-| `cost_basis_fiat` | `REAL` | The value per unit in fiat at the moment of acquisition (includes fees). |
-| `fee_fiat` | `REAL` | The portion of the cost that was a fee (for audit/reporting). |
-| `fiat_id` | `INTEGER` | FK to `fiat` table (the currency of the cost basis). |
-| `acquired_at` | `TIMESTAMP` | Date and time of acquisition. |
-| `source` | `TEXT` | Where the asset is held (e.g., 'Ledger', 'Coinbase'). |
-| `kind` | `TEXT` | The nature of the acquisition (Enum). |
-| `notes` | `TEXT` | Optional user notes. |
+| Column             | Type          | Description                                                              |
+| :----------------- | :------------ | :----------------------------------------------------------------------- |
+| `id`               | `TEXT (UUID)` | Unique identifier for the lot.                                           |
+| `asset_id`         | `TEXT`        | Foreign key to `asset` table (e.g., 'BTC', 'ETH').                       |
+| `amount_initial`   | `REAL`        | The original quantity acquired. **Immutable.**                           |
+| `amount_remaining` | `REAL`        | The quantity currently held. Decreases when sold.                        |
+| `cost_basis_fiat`  | `REAL`        | The value per unit in fiat at the moment of acquisition (includes fees). |
+| `fee_fiat`         | `REAL`        | The portion of the cost that was a fee (for audit/reporting).            |
+| `fiat_id`          | `INTEGER`     | FK to `fiat` table (the currency of the cost basis).                     |
+| `acquired_at`      | `TIMESTAMP`   | Date and time of acquisition.                                            |
+| `source`           | `TEXT`        | Where the asset is held (e.g., 'Ledger', 'Coinbase').                    |
+| `kind`             | `TEXT`        | The nature of the acquisition (Enum).                                    |
+| `notes`            | `TEXT`        | Optional user notes.                                                     |
 
 #### `kind` Enum Values
 *   `buy`: Purchased with fiat.
@@ -39,6 +39,7 @@ The source of truth for all assets entering the system.
 *   `defi_reward`: Yield farming / LP rewards.
 *   `lending`: Interest from lending platforms.
 *   `gift_received`: Gift from another person.
+*   `transformation`: Non-taxable conversion (Wrap/Unwrap/Bridge).
 
 ## Business Rules
 
@@ -77,10 +78,20 @@ When transferring assets (e.g., CEX to Wallet) where the fee is taken from the a
     4.  **Recording:** The `fee_fiat` on the new destination lot records the value of that 0.0005 BTC at the time of transfer, ensuring the cost of the transfer is preserved for tax deductibility (where applicable).
 
 ### 7. Cross-Chain Bridging (Parachains/L2s)
-Bridging assets (e.g., DOT from Relay Chain to Acala, or ETH from Mainnet to Arbitrum) is treated as a **Self-Transfer** with shrinkage.
+Bridging assets (e.g., DOT from Relay Chain to Acala) is treated as a **Self-Transfer** with shrinkage.
 *   **Logic:** Since the underlying asset remains the same (DOT -> DOT), it is not a Taxable Trade.
 *   **Mechanism:** Same as Rule #6 (Withdrawal).
     *   Source Lot (Relay Chain) reduced by full amount sent.
     *   Destination Lot (Parachain) created with net amount received.
     *   Bridge Fee (XCM/Gas) is the difference, recorded as expense.
 *   **Result:** Original Cost Basis and Holding Period (Long/Short term) are preserved and carried over to the new chain.
+
+### 8. Asset Transformation (Wrapping & L2 Bridging)
+When an asset changes form but represents the same underlying value (e.g., ETH $\to$ WETH, or ETH $\to$ Arbitrum ETH if tracked as a different asset ID).
+*   **Scenario:** User bridges ETH (L1) to Polygon, receiving WETH (Polygon).
+*   **The Problem:** DB sees `asset_id='ETH'` moving to `asset_id='WETH_POLY'`. A standard trade would reset the Holding Period.
+*   **The Fix (`kind='transformation'`):**
+    1.  **Source Lot:** Closed (Amount = 0).
+    2.  **Destination Lot:** Created with the new `asset_id`.
+    3.  **Critical Logic:** The **Cost Basis** and **Original Acquired Date** are **COPIED** from the Source Lot to the Destination Lot.
+    4.  **Result:** The user effectively holds the "same" economic position in a new wrapper. No capital gains tax is triggered (depending on jurisdiction settings).
