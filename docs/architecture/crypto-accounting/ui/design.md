@@ -36,15 +36,15 @@ A unified modal for entering data, with tabs for different activities.
     3.  User confirms.
     4.  **Result:** Updates `amount_remaining` on affected lots.
 
-### Tab D: Transfer (Self)
+### Tab D: Transfer / Bridge
 *   **Fields:** 
     *   Date
     *   Asset
-    *   Source (From)
-    *   Destination (To)
-    *   **Amount Sent** (e.g., 1.0 BTC)
-    *   **Fee** (e.g., 0.0005 BTC) - *Optional, defaults to 0*
-    *   **Amount Received** (calculated: 0.9995 BTC)
+    *   Source (From) - *Can be a Wallet or Network (e.g. "Polkadot Relay")*
+    *   Destination (To) - *Can be a Wallet or Network (e.g. "Acala Network")*
+    *   **Amount Sent** (e.g., 100.0 DOT)
+    *   **Fee** (e.g., 0.05 DOT) - *Bridge/XCM Fee*
+    *   **Amount Received** (calculated: 99.95 DOT)
 *   **Result:** 
     *   Reduces Source Lot by "Amount Sent".
     *   Creates New Lot at Destination with "Amount Received".

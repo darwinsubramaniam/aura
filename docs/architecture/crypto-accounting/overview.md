@@ -75,3 +75,12 @@ When transferring assets (e.g., CEX to Wallet) where the fee is taken from the a
     2.  **Destination Lot:** Created with net amount (0.9995 BTC).
     3.  **The Fee:** The 0.0005 BTC difference is recorded as an expense (Disposal).
     4.  **Recording:** The `fee_fiat` on the new destination lot records the value of that 0.0005 BTC at the time of transfer, ensuring the cost of the transfer is preserved for tax deductibility (where applicable).
+
+### 7. Cross-Chain Bridging (Parachains/L2s)
+Bridging assets (e.g., DOT from Relay Chain to Acala, or ETH from Mainnet to Arbitrum) is treated as a **Self-Transfer** with shrinkage.
+*   **Logic:** Since the underlying asset remains the same (DOT -> DOT), it is not a Taxable Trade.
+*   **Mechanism:** Same as Rule #6 (Withdrawal).
+    *   Source Lot (Relay Chain) reduced by full amount sent.
+    *   Destination Lot (Parachain) created with net amount received.
+    *   Bridge Fee (XCM/Gas) is the difference, recorded as expense.
+*   **Result:** Original Cost Basis and Holding Period (Long/Short term) are preserved and carried over to the new chain.
