@@ -1,0 +1,26 @@
+erDiagram
+    asset ||--o{ crypto_acquisition : "has many lots"
+    fiat ||--o{ crypto_acquisition : "denominates cost basis"
+    asset {
+        string id PK
+        string symbol
+        string name
+        string kind
+    }
+    fiat {
+        int id PK
+        string symbol
+        string name
+    }
+    crypto_acquisition {
+        string id PK
+        string asset_id FK
+        int fiat_id FK
+        real amount_initial "Immutable original qty"
+        real amount_remaining "Current inventory"
+        real cost_basis_fiat "Value per unit at time of acquisition"
+        timestamp acquired_at
+        string source "Wallet/Exchange name"
+        string kind "buy, staking, airdrop, etc"
+        string notes
+    }

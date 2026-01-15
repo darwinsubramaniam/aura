@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant App as Auro App
+    participant DB as Database (Table: crypto_holding)
+
+    Note over User, DB: Scenario: Accumulating Bitcoin
+
+    User->>App: Buy 1 BTC @ $50,000 (Jan 1)
+    App->>DB: INSERT Lot_A { amount: 1, price: 50k, date: "Jan 1" }
+    
+    User->>App: Buy 1 BTC @ $60,000 (Feb 1)
+    App->>DB: INSERT Lot_B { amount: 1, price: 60k, date: "Feb 1" }
+
+    Note right of DB: State:<br/>Row 1: Lot_A (1 BTC @ 50k)<br/>Row 2: Lot_B (1 BTC @ 60k)
+
+    rect rgb(240, 248, 255)
+        Note over User, DB: Scenario: Selling 1 BTC @ $70,000
+        
+        User->>App: Sell 1 BTC
+        App->>DB: Fetch oldest holdings (FIFO Strategy)
+        DB-->>App: Returns Lot_A
+        
+        App->>App: Calculate P&L<br/>(Sell Price 70k - Buy Price 50k) = $20k Profit
+        
+        App->>DB: DELETE Lot_A (or mark sold)
+        
+        Note right of DB: State:<br/>Row 1: [Deleted]<br/>Row 2: Lot_B (1 BTC @ 60k)
+    end

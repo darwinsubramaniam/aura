@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant App as Auro App
+    participant DB as Database (Table: crypto_holding)
+
+    Note over User, DB: Scenario: Accumulating Bitcoin
+
+    User->>App: Buy 1 BTC @ $50,000 (Jan 1)
+    App->>DB: INSERT/UPDATE Wallet { total: 1, avg_cost: 50k }
+    
+    User->>App: Buy 1 BTC @ $60,000 (Feb 1)
+    App->>App: Recalculate Average<br/>(50k + 60k) / 2 = 55k
+    App->>DB: UPDATE Wallet { total: 2, avg_cost: 55k }
+
+    Note right of DB: State:<br/>Row 1: Wallet (2 BTC @ 55k Avg)
+
+    rect rgb(255, 245, 245)
+        Note over User, DB: Scenario: Selling 1 BTC @ $70,000
+        
+        User->>App: Sell 1 BTC
+        App->>DB: Fetch Wallet Balance
+        DB-->>App: Returns { total: 2, avg_cost: 55k }
+        
+        App->>App: Calculate P&L<br/>(Sell Price 70k - Avg Cost 55k) = $15k Profit
+        Note right of App: Note: P&L is less accurate vs Tax Lot ($20k)
+        
+        App->>DB: UPDATE Wallet { total: 1, avg_cost: 55k }
+        
+        Note right of DB: State:<br/>Row 1: Wallet (1 BTC @ 55k Avg)
+    end

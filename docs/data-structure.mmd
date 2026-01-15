@@ -2,40 +2,79 @@
 title: Auro Data Structure
 ---
 erDiagram
-    FIAT {
-        int id PK "AUTOINCREMENT"
-        text name "NOT NULL"
-        text symbol "NOT NULL" 
-        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
-        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
-    }
-    FIAT_RAMP{
-        text id PK
-        int fiat_id FK "NOT NULL references fiat(id)"
-        real fiat_amount "NOT NULL"
-        date ramp_date "NOT NULL DEFAULT CURRENT_DATE"
-        varchar(255) via_exchange "NOT NULL"
-        varchar(8) kind " NOT NULL CHECK (kind IN ('deposit', 'withdraw')) " 
-        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
-        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    %% Core Reference Tables
+    asset {
+        TEXT id PK
+        TEXT name
+        TEXT symbol "Unique"
+        TEXT kind "stablecoin, cryptocoin, nft"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
-    FIAT ||--o{ FIAT_RAMP : ramp
-
-    SYS_TRACKER {
-        int id PK "AUTOINCREMENT"
-        text name "NOT NULL"
-        timestamp last_updated_at "DEFAULT CURRENT_TIMESTAMP"
+    fiat {
+        INTEGER id PK
+        TEXT name
+        TEXT symbol "Unique"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
-    FIAT_RATE{
-        int id PK "AUTOINCREMENT"
-        int base_fiat_id FK "NOT NULL references fiat(id)"
-        date date "NOT NULL"
-        text rates "NOT NULL JSON_TEXT({symbol::text: rate::real})"
-        timestamp created_at "DEFAULT CURRENT_TIMESTAMP"
-        timestamp updated_at "DEFAULT CURRENT_TIMESTAMP"
+    sys_tracker {
+        INTEGER id PK
+        TEXT name
+        TIMESTAMP last_updated_at
     }
 
+    %% User Configuration
+    user_settings {
+        INTEGER id PK
+        VARCHAR locale
+        INTEGER default_fiat_id FK
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% Fiat On/Off Ramp Tracking
+    fiat_ramp {
+        TEXT id PK
+        INTEGER fiat_id FK
+        REAL fiat_amount
+        DATE ramp_date
+        VARCHAR via_exchange
+        VARCHAR kind "deposit, withdraw"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% Exchange Rates Data
+    fiat_exchange_rate {
+        INTEGER id PK
+        INTEGER base_fiat_id FK
+        DATE date
+        TEXT rates "JSON"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% Error Tracking for Missing Rates
+    fiat_rate_missing {
+        TEXT fiat_ramp_id PK, FK
+        INTEGER base_fiat_id FK
+        DATE date
+        INTEGER error_count
+        TEXT last_error_msg
+        TIMESTAMP last_attempt_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% Relationships
+    user_settings }o--|| fiat : "default currency"
     
+    fiat_ramp }o--|| fiat : "currency used"
     
+    fiat_exchange_rate }o--|| fiat : "base currency"
+    
+    fiat_rate_missing |o--|| fiat_ramp : "associated ramp tx"
+    fiat_rate_missing }o--|| fiat : "target base currency"

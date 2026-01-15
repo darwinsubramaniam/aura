@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Add Transaction UI
+    participant Handler as Backend Command
+    participant DB as crypto_acquisition Table
+
+    Note over User, DB: Scenario: Staking Reward (Passive Income)
+
+    User->>UI: Selects "Earn" Tab
+    User->>UI: Enters: 10 SOL, Date: Today, Source: Ledger
+    User->>UI: Selects Type: "Staking Reward"
+    
+    UI->>UI: Auto-fetch Price for SOL (e.g. $25)
+    Note right of UI: Cost Basis = $25 (Fair Market Value)
+    
+    User->>UI: Clicks "Save"
+    
+    UI->>Handler: CreateAcquisition(Asset: SOL, Amount: 10, Basis: 25, Kind: 'staking')
+    
+    Handler->>DB: INSERT INTO crypto_acquisition<br/>{id: UUID, amount_initial: 10, amount_remaining: 10, cost_basis: 25, kind: 'staking'...}
+    
+    DB-->>Handler: Success
+    Handler-->>UI: Success
+    
+    UI->>User: Toast "Added 10 SOL Staking Reward"

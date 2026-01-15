@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Sell Transaction UI
+    participant Engine as Disposition Engine
+    participant DB as crypto_acquisition Table
+
+    Note over User, DB: Scenario: Selling Crypto (Reducing Inventory)
+
+    User->>UI: Enters "Sell 1.5 BTC"
+    
+    UI->>Engine: Request Preview (Asset: BTC, Amount: 1.5, Strategy: FIFO)
+    
+    Engine->>DB: SELECT * FROM crypto_acquisition <br/>WHERE asset='BTC' AND remaining > 0 <br/>ORDER BY acquired_at ASC
+    
+    DB-->>Engine: Returns: <br/>Lot A (1.0 BTC, bought Jan 1)<br/>Lot B (1.0 BTC, bought Feb 1)
+    
+    Engine->>Engine: Calculate Logic:<br/>1. Consume Lot A completely (1.0)<br/>2. Consume Lot B partially (0.5)
+    
+    Engine-->>UI: Returns Preview:<br/>"This will sell Lot A and 50% of Lot B"
+    
+    User->>UI: Confirms "Execute Sell"
+    
+    UI->>Engine: Execute Disposition
+    
+    Engine->>DB: UPDATE Lot A SET amount_remaining = 0
+    Engine->>DB: UPDATE Lot B SET amount_remaining = 0.5
+    
+    DB-->>Engine: Success
+    Engine-->>UI: Success
