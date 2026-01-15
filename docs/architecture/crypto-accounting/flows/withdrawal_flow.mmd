@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Transfer UI
+    participant Handler as Transfer Engine
+    participant DB as crypto_acquisition Table
+
+    Note over User, DB: Scenario: Withdrawal CEX -> Wallet (Shrinkage)
+
+    User->>UI: Selects "Transfer" Tab
+    User->>UI: From: Coinbase, To: Ledger
+    User->>UI: Amount Sent: 1.0 BTC
+    User->>UI: Fee: 0.0005 BTC (or Net Received: 0.9995)
+    
+    UI->>Handler: ExecuteTransfer(Asset: BTC, Sent: 1.0, Recv: 0.9995, From: 'Coinbase')
+    
+    Note right of Handler: Step 1: Source Logic (FIFO)
+    Handler->>DB: SELECT * FROM crypto_acquisition <br/>WHERE source='Coinbase' AND asset='BTC' AND remaining > 0
+    DB-->>Handler: Returns Lot A (Purchase of 2.0 BTC @ $30k)
+    
+    Handler->>Handler: Calculation:<br/>1. Reduce Lot A by 1.0 (Sent Amount)<br/>2. Carry over Cost Basis for 0.9995 (New Lot)<br/>3. Realize Disposal for 0.0005 (Fee)
+    
+    Note right of Handler: Step 2: Update Source
+    Handler->>DB: UPDATE Lot A SET amount_remaining = 1.0
+    
+    Note right of Handler: Step 3: Create Destination
+    Handler->>DB: INSERT INTO crypto_acquisition<br/>{source: 'Ledger', amount_initial: 0.9995, amount_remaining: 0.9995,<br/>kind: 'transfer_in', fee_fiat: (Value of 0.0005 BTC)...}
+    
+    DB-->>Handler: Success
+    Handler-->>UI: Success
+    
+    UI->>User: Toast "Transferred 0.9995 BTC to Ledger"
