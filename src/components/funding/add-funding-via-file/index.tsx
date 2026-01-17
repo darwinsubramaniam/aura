@@ -238,7 +238,17 @@ export function AddFundingViaFile({ className }: FundingViaFileProps) {
     const processed = data
       .map((row, index) => {
         const dateVal = row[mapping.date];
-        const amountVal = row[mapping.amount];
+        
+        // Ensure amount is absolute value
+        const rawAmount = row[mapping.amount];
+        let amountVal = rawAmount;
+        if (rawAmount !== undefined && rawAmount !== null && rawAmount !== "") {
+             const parsed = Number(rawAmount);
+             if (!isNaN(parsed)) {
+                 amountVal = Math.abs(parsed);
+             }
+        }
+
         const currencyVal = mapping.currency
           ? row[mapping.currency]
           : undefined;
