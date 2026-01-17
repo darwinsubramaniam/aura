@@ -1,4 +1,4 @@
-import { FundingViaFile } from "@/components/funding/funding-via-file";
+import { AddFundingViaFile } from "@/components/funding/add-funding-via-file";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -20,7 +20,7 @@ export default function FundingFilePage() {
       </div>
 
       <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-        <FundingViaFile />
+        <AddFundingViaFile />
       </div>
     </div>
   );
