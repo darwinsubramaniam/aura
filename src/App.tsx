@@ -3,6 +3,7 @@ import "./App.css";
 import Sidebar from "./components/common/Sidebar";
 import Funding from "./components/funding/funding";
 import FundingHistoryPage from "./components/funding/funding-history-page";
+import FundingFilePage from "./components/funding/funding-file";
 import UserSetting from "./components/user-settings/user-setting";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ const AppRoutes = [
   { path: "/", element: <Navigate to="/funding" replace /> },
   { path: "/funding", element: <Funding /> },
   { path: "/funding-history", element: <FundingHistoryPage /> },
+  { path: "/funding-file", element: <FundingFilePage /> },
   { path: "/user-settings", element: <UserSetting /> },
 ];
 

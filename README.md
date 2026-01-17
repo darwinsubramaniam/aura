@@ -34,7 +34,7 @@ Still in active development.
 Clone the repo and install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Development
@@ -42,19 +42,19 @@ npm install
 **Desktop:**
 
 ```bash
-npm run tauri dev
+pnpm run tauri dev
 ```
 
 **Android:**
 
 ```bash
-npm run tauri android dev
+pnpm run tauri android dev
 ```
 
 **iOS:**
 
 ```bash
-npm run tauri ios dev
+pnpm run tauri ios dev
 ```
 
 |                                     Desktop                                     |                                     Android                                     |                                   iOS                                   |
