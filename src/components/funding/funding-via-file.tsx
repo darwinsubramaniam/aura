@@ -10,7 +10,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  MoreVertical,
+  Trash2,
+  Pencil,
+  Check,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar } from "@/components/ui/scroll-area";
 import { parse, isValid, format } from "date-fns";
@@ -38,6 +43,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FiatCommand } from "@/lib/services/fiat/fiat.command";
 import { Fiat } from "@/lib/models/fiat";
@@ -104,6 +122,7 @@ export function FundingViaFile({ className }: FileContentTableProps) {
     [],
   );
   const [exchangeName, setExchangeName] = React.useState("");
+  const [defaultFiatId, setDefaultFiatId] = React.useState<string>("");
 
   const [activeTab, setActiveTab] = React.useState("configure");
   const [previewData, setPreviewData] = React.useState<any[]>([]);
@@ -180,6 +199,7 @@ export function FundingViaFile({ className }: FileContentTableProps) {
     setMapping({ date: "", amount: "", currency: "", kind: "" });
     setDateSettings({ type: "auto", formatStr: "" });
     setExchangeName("");
+    setDefaultFiatId("");
     setKindMapping({});
     setActiveTab("configure");
     setPreviewData([]);
@@ -316,15 +336,44 @@ export function FundingViaFile({ className }: FileContentTableProps) {
         // Parse Date
         const parsedDate = parseRowDate(dateVal);
 
+        // Resolve Currency
+        let resolvedCurrencySymbol = "";
+        let fiatId = 0;
+
+        if (currencyVal) {
+             // 1. Try to match mapped value
+             const match = fiats.find(f => f.symbol === currencyVal || f.name === currencyVal);
+             if (match) {
+                 fiatId = match.id;
+                 resolvedCurrencySymbol = match.symbol;
+             } else {
+                 // Invalid/Unknown currency in file
+                 resolvedCurrencySymbol = currencyVal; // Show what was found
+             }
+        } 
+        
+        if (fiatId === 0 && defaultFiatId && !currencyVal) {
+             // 2. Fallback to default ONLY if column value is missing
+             const match = fiats.find(f => String(f.id) === defaultFiatId);
+             if (match) {
+                 fiatId = match.id;
+                 resolvedCurrencySymbol = match.symbol;
+             }
+        }
+
+        const isCurrencyValid = fiatId !== 0;
+
         return {
           _originalIndex: index,
           date: parsedDate ? format(parsedDate, "yyyy-MM-dd") : "Invalid Date",
           originalDate: dateVal,
           amount: amountVal,
-          currency: currencyVal,
+          currency: resolvedCurrencySymbol || "-",
           kind: mappedKind,
           exchange: exchangeName,
           isDateValid: !!parsedDate,
+          isCurrencyValid: isCurrencyValid,
+          fiatId: fiatId // Store for import
         };
       })
       .filter(Boolean);
@@ -336,6 +385,30 @@ export function FundingViaFile({ className }: FileContentTableProps) {
 
     setPreviewData(processed);
     setActiveTab("preview");
+  };
+
+  const handleRemoveRow = (index: number) => {
+    setPreviewData((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const [openRowIndex, setOpenRowIndex] = React.useState<number | null>(null);
+
+  const handleUpdateRowCurrency = (index: number, fiatId: string) => {
+    const fiat = fiats.find((f) => String(f.id) === fiatId);
+    if (!fiat) return;
+
+    setPreviewData((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        return {
+          ...row,
+          fiatId: fiat.id,
+          currency: fiat.symbol,
+          isCurrencyValid: true,
+        };
+      })
+    );
+    setOpenRowIndex(null);
   };
 
   const handleImport = async () => {
@@ -351,37 +424,16 @@ export function FundingViaFile({ className }: FileContentTableProps) {
 
       const payload = [];
       for (const row of previewData) {
-        let fiatId = 0;
-        // Try to find fiat ID
-        if (row.currency) {
-          const fiat = fiats.find(
-            (f) => f.symbol === row.currency || f.name === row.currency,
-          );
-          if (fiat) fiatId = fiat.id;
+        // Validation check (redundant but safe)
+        if (!row.isDateValid) {
+             throw new Error(`Row ${row._originalIndex + 1} has an invalid date.`);
         }
-
-        // Fallback or validation?
-        // If fiatId is 0, backend might fail or we should prompt user.
-        // For now, let's assume if currency column is mapped, we use it.
-        // If not mapped, maybe we should have a "Default Currency" dropdown in configuration?
-        // The user didn't ask for it explicitly but `previewData` has `currency`.
-
-        // Let's rely on finding it. If 0, it's an issue.
-        // BUT: `CreateFiatRamp` requires `fiat_id`.
-
-        // QUICK FIX: If currency is missing, default to the first one or we should add a "Default Fiat" select.
-        // Since I can't add UI without asking, I'll try to find it.
-        // If row.currency is empty, we skip or fail?
-        // Let's assume the user mapped a currency column validly.
-
-        if (fiatId === 0) {
-          // Last ditch: check if we have a default fiat set in settings? No easy access here.
-          // Just pick the first available fiat as fallback if list exists, or 0.
-          if (fiats.length > 0) fiatId = fiats[0].id;
+        if (!row.isCurrencyValid || !row.fiatId) {
+             throw new Error(`Row ${row._originalIndex + 1} has an invalid or missing currency.`);
         }
 
         payload.push({
-          fiat_id: fiatId,
+          fiat_id: row.fiatId,
           fiat_amount: Number(row.amount),
           ramp_date: new Date(row.date), // row.date is yyyy-MM-dd string, new Date() parses it to UTC/Local midnight
           via_exchange: row.exchange || "Imported",
@@ -577,21 +629,46 @@ export function FundingViaFile({ className }: FileContentTableProps) {
 
               <div className="space-y-2">
                 <Label>Currency Column</Label>
-                <Select
-                  onValueChange={(v) => updateMapping("currency", v)}
-                  value={mapping.currency}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {headers.map((h) => (
-                      <SelectItem key={h} value={h}>
-                        {h}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-col gap-2">
+                    <Select
+                    onValueChange={(v) => updateMapping("currency", v)}
+                    value={mapping.currency}
+                    >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select column (Optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {headers.map((h) => (
+                        <SelectItem key={h} value={h}>
+                            {h}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                    
+                    {!mapping.currency && (
+                        <div className="p-2 border rounded bg-background flex flex-col gap-2">
+                            <Label className="text-xs text-muted-foreground">
+                                Default Currency (Fallback)
+                            </Label>
+                            <Select
+                                value={defaultFiatId}
+                                onValueChange={setDefaultFiatId}
+                            >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select Fiat" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {fiats.map(f => (
+                                        <SelectItem key={f.id} value={String(f.id)}>
+                                            {f.symbol} - {f.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -866,7 +943,7 @@ export function FundingViaFile({ className }: FileContentTableProps) {
               </div>
               <Button
                 onClick={handleImport}
-                disabled={isImporting || previewData.length === 0}
+                disabled={isImporting || previewData.length === 0 || previewData.some(row => !row.isDateValid || !row.isCurrencyValid)}
               >
                 {isImporting ? "Importing..." : "Confirm & Import"}
               </Button>
@@ -974,10 +1051,13 @@ export function FundingViaFile({ className }: FileContentTableProps) {
                           <TableHead>Currency</TableHead>
                           <TableHead>Kind</TableHead>
                           <TableHead>Exchange</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedData.map((row, rowIndex) => (
+                        {paginatedData.map((row, rowIndex) => {
+                          const realIndex = (page - 1) * pageSize + rowIndex;
+                          return (
                           <TableRow key={rowIndex}>
                             <TableCell>
                               <div className="flex flex-col">
@@ -998,13 +1078,74 @@ export function FundingViaFile({ className }: FileContentTableProps) {
                               </div>
                             </TableCell>
                             <TableCell>{row.amount}</TableCell>
-                            <TableCell>{row.currency || "-"}</TableCell>
+                            <TableCell>
+                              {row.isCurrencyValid ? (
+                                  row.currency
+                              ) : (
+                                  <div className="flex items-center gap-2">
+                                      <div className="flex flex-col">
+                                          <span className="text-destructive font-medium">{row.currency !== "-" ? row.currency : "Missing"}</span>
+                                          <span className="text-[10px] text-destructive/80">Unknown/Invalid</span>
+                                      </div>
+                                      
+                                      <Popover 
+                                        open={openRowIndex === realIndex} 
+                                        onOpenChange={(open) => setOpenRowIndex(open ? realIndex : null)}
+                                        modal={true}
+                                      >
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                                                <Pencil className="h-3 w-3" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="p-0 w-[200px]" align="start">
+                                            <Command filter={(value, search) => {
+                                                if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                                                return 0;
+                                            }}>
+                                                <CommandInput placeholder="Search currency..." className="h-9" />
+                                                <CommandList>
+                                                    <CommandEmpty>No currency found.</CommandEmpty>
+                                                    <CommandGroup className="max-h-[200px] overflow-y-auto">
+                                                        {fiats.map((fiat) => (
+                                                            <CommandItem
+                                                                key={fiat.id}
+                                                                value={`${fiat.symbol} ${fiat.name}`}
+                                                                onSelect={() => handleUpdateRowCurrency(realIndex, String(fiat.id))}
+                                                            >
+                                                                {fiat.symbol} - {fiat.name}
+                                                                <Check
+                                                                    className={cn(
+                                                                        "ml-auto h-4 w-4",
+                                                                        String(row.fiatId) === String(fiat.id) ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                  </div>
+                              )}
+                            </TableCell>
                             <TableCell className="capitalize">
                               {row.kind}
                             </TableCell>
                             <TableCell>{row.exchange || "-"}</TableCell>
+                            <TableCell>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleRemoveRow(realIndex)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
                           </TableRow>
-                        ))}
+                        )})}
                       </TableBody>
                     </>
                   )}
