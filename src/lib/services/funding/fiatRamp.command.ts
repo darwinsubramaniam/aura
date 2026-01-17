@@ -8,6 +8,7 @@ enum FiatRampCommandList {
     GET = 'get_fiat_ramps',
     UPDATE = 'update_fiat_ramp',
     DELETE = 'delete_fiat_ramp',
+    CREATE_BULK = 'create_fiat_ramps_bulk',
     GET_SUMMARY = 'get_fiat_ramp_summary',
     GET_DATE_RANGE = 'get_fiat_ramp_date_range'
 }
@@ -29,6 +30,25 @@ export class FiatRampCommand {
                 via_exchange: createFiatRamp.via_exchange,
                 kind: createFiatRamp.kind
             }
+        });
+    }
+
+    /**
+     * Create multiple fiat ramps
+     * @param ramps List of ramps to create
+     * @returns number = total created
+     */
+    public static createBulk(ramps: CreateFiatRamp[]) {
+        const payload = ramps.map(r => ({
+            fiat_id: r.fiat_id,
+            fiat_amount: r.fiat_amount,
+            ramp_date: format(r.ramp_date, 'yyyy-MM-dd'),
+            via_exchange: r.via_exchange,
+            kind: r.kind
+        }));
+        
+        return invoke<number>(FiatRampCommandList.CREATE_BULK, {
+            ramps: payload
         });
     }
 

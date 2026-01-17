@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, History } from "lucide-react";
+import { Plus, History, Upload } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
 
@@ -39,10 +39,16 @@ export default function Funding() {
     <div>
       <div className="mb-4 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
         <DateRangeFilter date={dateRange} setDate={setDateRange} />
-        <Button onClick={() => setCreateDialogVisible(true)} className="w-full md:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Deposit / Withdraw
-        </Button>
+        <div className="flex gap-2 w-full md:w-auto">
+            <Button onClick={() => navigate("/funding-file")} variant="outline" className="flex-1 md:flex-none">
+              <Upload className="mr-2 h-4 w-4" />
+              Import File
+            </Button>
+            <Button onClick={() => setCreateDialogVisible(true)} className="flex-1 md:flex-none">
+              <Plus className="mr-2 h-4 w-4" />
+              Deposit / Withdraw
+            </Button>
+        </div>
       </div>
       <div className="mb-4">
         <FundingSummaryCards

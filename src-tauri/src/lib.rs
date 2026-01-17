@@ -72,6 +72,7 @@ pub fn run() {
             fiat_ramp_command::delete_fiat_ramp,
             fiat_ramp_command::get_fiat_ramp_summary,
             fiat_ramp_command::get_fiat_ramp_date_range,
+            fiat_ramp_command::create_fiat_ramps_bulk,
             user_settings_command::get_user_settings,
             user_settings_command::update_user_settings,
         ])

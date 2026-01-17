@@ -8,7 +8,7 @@ use crate::fiat_ramp::SortOptions;
 use crate::fiat_ramp::UpdateFiatRamp;
 use crate::fiat_rate;
 
-use tauri::State;
+use tauri::{Emitter, State, Window};
 
 #[tauri::command]
 pub async fn create_fiat_ramp(
@@ -29,6 +29,65 @@ pub async fn create_fiat_ramp(
         .ok();
 
     Ok(result)
+}
+
+#[derive(Clone, serde::Serialize)]
+struct ProgressPayload {
+    processed: usize,
+    total: usize,
+}
+
+/// Create multiple fiat ramps in bulk
+/// This function processes the ramps in chunks and triggers rate checks for each chunk.
+#[tauri::command]
+pub async fn create_fiat_ramps_bulk(
+    ramps: Vec<CreateFiatRamp>,
+    db: State<'_, Db>,
+    window: Window,
+) -> Result<u64, String> {
+    let total = ramps.len();
+
+    // Process in chunks
+    let chunk_size = 50;
+    let chunks: Vec<_> = ramps.chunks(chunk_size).collect();
+    let mut processed = 0;
+
+    for chunk in chunks {
+        // Create this chunk and get the generated IDs
+        let chunk_vec = chunk.to_vec();
+
+        let all_new_fiat_ramps = FiatRampService::create_bulk(chunk_vec.clone(), &db)
+            .await
+            .map_err(|e| format!("failed to bulk create: {e}"))?;
+
+        // Trigger rate checks for this chunk using the real IDs
+        // This ensures failures are queued correctly in `fiat_rate_missing`
+        let api = FrankfurterExchangerApi::default();
+
+        // We can execute these in parallel since get_rate handles its own DB connections
+        // Note: join_all awaits all futures concurrently
+        let futures = all_new_fiat_ramps.iter().map(|fiat_ramp| {
+            let api_ref = &api;
+            let db_ref = &db;
+            let id_ref = &fiat_ramp.id;
+            let date = fiat_ramp.ramp_date;
+            async move {
+                fiat_rate::get_rate(db_ref, api_ref, &date, Some(id_ref))
+                    .await
+                    .ok()
+            }
+        });
+
+        futures::future::join_all(futures).await;
+
+        processed += chunk.len();
+        let _ = window.emit(
+            "fiat-ramp-bulk-progress",
+            ProgressPayload { processed, total },
+        );
+    }
+
+    Ok(total as u64)
 }
 
 /// Get all fiat ramps with pagination -- limit and offset are optional but default to 50 and 0 respectively

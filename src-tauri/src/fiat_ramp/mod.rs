@@ -1,12 +1,12 @@
 pub mod command;
 use crate::db::{Db, RowId, StringRowId};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, sqlite::SqliteQueryResult};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Serialize, Deserialize, sqlx::Type, Clone)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(rename_all = "lowercase")]
 pub enum RampKind {
@@ -22,12 +22,6 @@ pub struct FiatRamp {
     pub ramp_date: chrono::NaiveDate,
     pub kind: RampKind,
     pub via_exchange: String,
-    pub created_at: chrono::NaiveDateTime,
-    pub updated_at: chrono::NaiveDateTime,
-    #[serde(default)]
-    pub fiat_symbol: Option<String>,
-    #[sqlx(default)]
-    pub is_estimated: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -40,7 +34,7 @@ pub struct UpdateFiatRamp {
     pub via_exchange: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateFiatRamp {
     pub fiat_id: RowId,
     pub fiat_amount: f64,
@@ -131,6 +125,50 @@ impl FiatRampService {
             .await
             .map_err(|e| format!("failed to commit transaction: {e}"))?;
         Ok(id)
+    }
+
+    /// Create multiple fiat ramps and return all IDs
+    pub async fn create_bulk(ramps: Vec<CreateFiatRamp>, db: &Db) -> Result<Vec<FiatRamp>, String> {
+        let mut tx =
+            db.0.begin()
+                .await
+                .map_err(|e| format!("failed to begin transaction: {e}"))?;
+
+        let mut fiat_ramps: Vec<FiatRamp> = Vec::with_capacity(ramps.len());
+        for ramp in ramps {
+            let id = Uuid::now_v7().to_string();
+            sqlx::query(
+                r#"
+                INSERT INTO fiat_ramp
+                (id, fiat_id, fiat_amount, ramp_date, via_exchange, kind)
+                VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+            )
+            .bind(&id)
+            .bind(ramp.fiat_id)
+            .bind(ramp.fiat_amount)
+            .bind(ramp.ramp_date)
+            .bind(&ramp.via_exchange)
+            .bind(&ramp.kind)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("failed to insert fiat ramp: {e}"))?;
+
+            fiat_ramps.push(FiatRamp {
+                id,
+                fiat_id: ramp.fiat_id,
+                fiat_amount: ramp.fiat_amount,
+                ramp_date: ramp.ramp_date,
+                via_exchange: ramp.via_exchange,
+                kind: ramp.kind,
+            });
+        }
+
+        tx.commit()
+            .await
+            .map_err(|e| format!("failed to commit transaction: {e}"))?;
+
+        Ok(fiat_ramps)
     }
 
     /// Get all fiat ramps
@@ -286,7 +324,7 @@ impl FiatRampService {
             r#"
             SELECT MIN(ramp_date) as min_date, MAX(ramp_date) as max_date
             FROM fiat_ramp
-            "#
+            "#,
         )
         .fetch_one(&db.0)
         .await
