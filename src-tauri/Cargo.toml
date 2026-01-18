@@ -35,6 +35,8 @@ tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
 uuid = { version = "1.19.0", features = ["serde", "v7"] }
 chrono = { version = "0.4.42", features = ["serde"] }
 tauri-plugin-http = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 anyhow = "1.0.100"
 rust_decimal = "1.39.0"
 futures = "0.3.31"

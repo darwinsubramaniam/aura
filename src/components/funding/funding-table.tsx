@@ -42,7 +42,7 @@ import {
   SortDirection,
 } from "@/lib/models/fiatRamp";
 import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
-import { convertToCSV, downloadCSV } from "@/lib/utils/csv";
+import { convertToCSV, saveCSV } from "@/lib/utils/csv";
 
 
 import { format } from "date-fns";
@@ -182,13 +182,22 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
       ]);
       
       const fileName = `funding_history_${format(new Date(), "yyyy-MM-dd")}.csv`;
-      downloadCSV(csvData, fileName);
+      
+      saveCSV(csvData, fileName).then((saved) => {
+        if (saved) {
+          toast.success("CSV Saved Successfully");
+        }
+      }).catch(err => {
+        console.error("Save error:", err);
+        toast.error("Failed to save CSV");
+      });
     });
 
     toast.promise(promise, {
       loading: "Preparing CSV download...",
-      success: "Download started",
-      error: "Failed to download CSV",
+      // Success/Error handling moved inside promise for better granularity with save dialog
+      success: () => "Processing...", 
+      error: "Failed to fetch data",
     });
   };
 

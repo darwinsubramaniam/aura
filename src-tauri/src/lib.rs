@@ -26,6 +26,8 @@ pub fn run() {
     let env = std::env::var("ENV").unwrap_or_else(|_| "dev".into());
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
             let handle = app.handle().clone();
