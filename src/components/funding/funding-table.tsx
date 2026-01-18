@@ -29,7 +29,7 @@ import {
   SortingState,
 } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
-import { Pencil, Trash, Clock, ArrowUpDown } from "lucide-react";
+import { Pencil, Trash, Clock, ArrowUpDown, Download } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -42,6 +42,7 @@ import {
   SortDirection,
 } from "@/lib/models/fiatRamp";
 import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
+import { convertToCSV, downloadCSV } from "@/lib/utils/csv";
 
 
 import { format } from "date-fns";
@@ -146,6 +147,48 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
       setRowSelection({});
       loadData();
       onDataChange?.();
+    });
+  };
+
+  const handleDownloadCSV = () => {
+    // Convert tanstack sorting state to backend SortOptions
+    const sortOptions: SortOptions | undefined =
+      sorting.length > 0
+        ? {
+            column: sorting[0].id,
+            direction: sorting[0].desc
+              ? ("desc" as SortDirection)
+              : ("asc" as SortDirection),
+          }
+        : undefined;
+
+    const promise = FiatRampCommand.get(
+      1000000, // Fetch essentially all records
+      0,
+      globalFilter,
+      sortOptions,
+      startDate,
+      endDate
+    ).then((res) => {
+      const csvData = convertToCSV(res.fiat_ramps, [
+        { key: "ramp_date", header: "Date" },
+        { key: "fiat_amount", header: "Amount" },
+        { key: "from_fiat_symbol", header: "Currency" },
+        { key: "converted_amount", header: "Converted Amount" },
+        { key: "to_fiat_symbol", header: "Target Currency" },
+        { key: "kind", header: "Kind" },
+        { key: "via_exchange", header: "Exchange" },
+        { key: "conversion_rate", header: "Exchange Rate" },
+      ]);
+      
+      const fileName = `funding_history_${format(new Date(), "yyyy-MM-dd")}.csv`;
+      downloadCSV(csvData, fileName);
+    });
+
+    toast.promise(promise, {
+      loading: "Preparing CSV download...",
+      success: "Download started",
+      error: "Failed to download CSV",
     });
   };
 
@@ -422,15 +465,21 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
               : `Showing all records${availableRange.min && availableRange.max ? ` (Data available: ${format(availableRange.min, "MMM d, yyyy")} - ${format(availableRange.max, "MMM d, yyyy")})` : ""}`}
           </p>
         </div>
-        {Object.keys(rowSelection).length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteSelectedDialogOpen(true)}
-          >
-            Delete Selected
+        <div className="flex items-center gap-2">
+          {Object.keys(rowSelection).length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteSelectedDialogOpen(true)}
+            >
+              Delete Selected
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDownloadCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Download CSV
           </Button>
-        )}
+        </div>
       </CardHeader>
       <CardContent>
         <DataTable
