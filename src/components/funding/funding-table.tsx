@@ -44,6 +44,8 @@ import {
 import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command";
 
 
+import { format } from "date-fns";
+
 interface FundingTableProps {
   refreshTrigger?: number;
   onDataChange?: () => void;
@@ -384,7 +386,14 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Funding History</CardTitle>
+        <div className="flex flex-col gap-1">
+          <CardTitle>Funding History</CardTitle>
+          <p className="text-sm text-muted-foreground" data-testid="date-range-filter-text">
+            {startDate && endDate
+              ? `Showing records from ${format(startDate, "MMM d, yyyy")} to ${format(endDate, "MMM d, yyyy")}`
+              : "Showing all records"}
+          </p>
+        </div>
         {Object.keys(rowSelection).length > 0 && (
           <Button
             variant="destructive"
