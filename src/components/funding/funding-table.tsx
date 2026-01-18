@@ -257,11 +257,23 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
         cell: ({ row }) => {
           const amount = parseFloat(row.getValue("fiat_amount"));
           const symbol = row.original.from_fiat_symbol || "USD";
+          const name = row.original.from_fiat_name || "US Dollar";
           const formatted = new Intl.NumberFormat("en-US", {
             style: "currency",
             currency: symbol,
           }).format(amount);
-          return <div className="font-medium">{formatted}</div>;
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="font-medium cursor-help underline decoration-dotted underline-offset-2">
+                  {formatted}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{name}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
         },
       },
       {
