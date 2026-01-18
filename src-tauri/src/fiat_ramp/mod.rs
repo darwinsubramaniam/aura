@@ -193,11 +193,13 @@ impl FiatRampService {
             (via_exchange LIKE ?
             OR kind LIKE ?
             OR CAST(fiat_amount AS TEXT) LIKE ?
-            OR from_fiat_symbol LIKE ?)
+            OR from_fiat_symbol LIKE ?
+            OR from_fiat_name LIKE ?)
             AND (ramp_date >= ? OR ? IS NULL)
             AND (ramp_date <= ? OR ? IS NULL)
         "#,
         )
+        .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
         .bind(format!("%{}%", query_filter))
@@ -240,7 +242,8 @@ impl FiatRampService {
                 WHERE (via_exchange LIKE ?
                 OR kind LIKE ?
                 OR CAST(fiat_amount AS TEXT) LIKE ?
-                OR from_fiat_symbol LIKE ?)
+                OR from_fiat_symbol LIKE ?
+                OR from_fiat_name LIKE ?)
                 AND (ramp_date >= ? OR ? IS NULL)
                 AND (ramp_date <= ? OR ? IS NULL)
                 {}
@@ -251,6 +254,7 @@ impl FiatRampService {
         );
 
         let result = sqlx::query_as::<sqlx::Sqlite, FiatRampWithConversionView>(&sql)
+            .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
             .bind(format!("%{}%", query_filter))
@@ -515,6 +519,42 @@ mod tests {
         assert!(!result.fiat_ramps[0].from_fiat_symbol.is_empty());
         let symbol = &result.fiat_ramps[0].from_fiat_symbol;
         assert!(matches!(symbol.as_str(), "MYR" | "SGD"));
+    }
+
+    #[tokio::test]
+    async fn test_get_fiat_ramp_search() {
+        let db = init_db().await;
+        // create a fiat ramp
+        let create_fiat_ramp = CreateFiatRamp {
+            fiat_id: 1, // Depending on init_db order, this is either MYR or SGD
+            fiat_amount: 100.0,
+            ramp_date: chrono::NaiveDate::from_ymd_opt(2022, 1, 1).unwrap(),
+            via_exchange: "coinbase".to_string(),
+            kind: RampKind::Deposit,
+        };
+        let _ = FiatRampService::create(create_fiat_ramp, &db).await;
+
+        // Determine which currency ID 1 is
+        let fiat_name: String = sqlx::query_scalar("SELECT name FROM fiat WHERE id = 1")
+            .fetch_one(&db.0)
+            .await
+            .unwrap();
+
+        // Search by part of the name
+        let part_of_name = &fiat_name[0..4]; // e.g., "Mala" or "Sing"
+        let result = FiatRampService::get(10, 0, Some(part_of_name.to_string()), None, None, None, &db)
+            .await
+            .unwrap();
+        
+        assert_eq!(result.total_count, 1);
+        assert_eq!(result.fiat_ramps.len(), 1);
+        assert_eq!(result.fiat_ramps[0].from_fiat_name, fiat_name);
+
+        // Search by something that doesn't exist
+        let result = FiatRampService::get(10, 0, Some("NonExistent".to_string()), None, None, None, &db)
+            .await
+            .unwrap();
+        assert_eq!(result.total_count, 0);
     }
 
     #[tokio::test]
