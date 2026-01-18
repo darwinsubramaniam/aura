@@ -1,10 +1,8 @@
 pub mod command;
 use crate::db::RowId;
-use crate::{fiat_exchanger::FiatExchanger, sys_tracker::SysTracker, utils, Db};
+use crate::{fiat_exchanger::FiatExchanger, sys_tracker::SysTracker, utils::date_utils, Db};
 use anyhow::{Context, Result};
-use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 pub struct FiatService<A: FiatExchanger> {
     fiat_api_client: A,
@@ -17,17 +15,6 @@ pub struct Fiat {
     pub name: String,
 }
 
-#[derive(Debug, sqlx::FromRow, Serialize)]
-pub struct FiatExchangeRate {
-    pub id: i64,
-    pub base_fiat_id: i64,
-    pub date: chrono::NaiveDate,
-    pub rates: HashMap<String, f64>,
-    #[serde(skip)]
-    pub created_at: NaiveDateTime,
-    #[serde(skip)]
-    pub updated_at: NaiveDateTime,
-}
 
 const FIAT_SYS_TRACKER_NAME: &str = "fiat";
 
@@ -45,18 +32,6 @@ impl<A: FiatExchanger> FiatService<A> {
     }
 }
 
-#[derive(Debug, sqlx::FromRow)]
-struct FiatRow {
-    #[sqlx(flatten)]
-    fiat: Fiat,
-    total_count: i64,
-}
-
-#[derive(Serialize, Default, Deserialize)]
-pub struct FiatPagination {
-    pub fiat: Vec<Fiat>,
-    pub total_count: i64,
-}
 
 impl<A: FiatExchanger> FiatService<A> {
     // update database with supported currencies symbols and names
@@ -66,7 +41,7 @@ impl<A: FiatExchanger> FiatService<A> {
             .await
             .context("failed to get last updated at")?;
 
-        let require_update = utils::require_update(last_updated_at, chrono::Duration::hours(24));
+        let require_update = date_utils::require_update(last_updated_at, chrono::Duration::hours(24));
 
         if !require_update {
             return Ok(0);
@@ -113,38 +88,6 @@ impl<A: FiatExchanger> FiatService<A> {
         Ok(total_row_affected)
     }
 
-    /// get the database fiat via pagination method
-    pub async fn get_fiat_with_pagination(
-        db: &Db,
-        symbol: Option<&str>,
-        limit: Option<u32>,
-        offset: Option<u32>,
-    ) -> Result<FiatPagination> {
-        let limit = limit.unwrap_or(50);
-        let offset = offset.unwrap_or(0);
-        let base_query = if let Some(symbol) = symbol {
-            sqlx::query_as::<_, FiatRow>(
-                "SELECT *, COUNT(*) OVER () AS total_count FROM fiat WHERE symbol LIKE ? LIMIT ? OFFSET ?",
-            )
-            .bind(format!("%{}%", symbol))
-        } else {
-            sqlx::query_as::<_, FiatRow>(
-                "SELECT *, COUNT(*) OVER () AS total_count FROM fiat LIMIT ? OFFSET ?",
-            )
-        };
-        let fiat_rows = base_query
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&db.0)
-            .await
-            .context("failed to get fiat by symbol")?;
-
-        let total_count = fiat_rows.first().map(|r| r.total_count).unwrap_or(0);
-        let fiat = fiat_rows.into_iter().map(|r| r.fiat).collect();
-
-        Ok(FiatPagination { fiat, total_count })
-    }
-
     /// get all fiat from the database
     pub async fn get_all_fiat(db: &Db) -> Result<Vec<Fiat>> {
         let fiat = sqlx::query_as::<_, Fiat>("SELECT * FROM fiat")
@@ -152,15 +95,6 @@ impl<A: FiatExchanger> FiatService<A> {
             .await
             .context("failed to get all fiat")?;
         Ok(fiat)
-    }
-
-    /// get the total count of fiat in the database
-    pub async fn get_total_count(db: &Db) -> Result<i64> {
-        let total_count = sqlx::query_scalar("SELECT COUNT(*) FROM fiat")
-            .fetch_one(&db.0)
-            .await
-            .context("failed to get total count")?;
-        Ok(total_count)
     }
 
     /// get the fiat by id from the database
@@ -268,41 +202,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_fiat_with_pagination() {
-        // Arrange
-        let db = get_db().await;
-        update_db_with_mock_data(&db).await;
-
-        let one_limit = Some(1);
-        let zero_offset = Some(0);
-
-        // Act
-        let result = FiatService::<MockFiatExchanger>::get_fiat_with_pagination(
-            &db,
-            None,
-            one_limit,
-            zero_offset,
-        )
-        .await;
-
-        // Assert
-        assert!(result.iter().count() == 1);
-
-        let two_limit = Some(2);
-        let one_offset = Some(0);
-
-        // Act
-        let result = FiatService::<MockFiatExchanger>::get_fiat_with_pagination(
-            &db, None, two_limit, one_offset,
-        )
-        .await
-        .unwrap();
-
-        // Assert
-        assert!(result.total_count == 2);
-    }
-
-    #[tokio::test]
     async fn test_get_fiat_by_id() {
         // Arrange
         let db = get_db().await;
@@ -328,19 +227,5 @@ mod tests {
         // Assert
         assert!(result.is_ok());
         assert_eq!(result.unwrap().name, "United States Dollar");
-    }
-
-    #[tokio::test]
-    async fn test_get_total_count() {
-        // Arrange
-        let db = get_db().await;
-        update_db_with_mock_data(&db).await;
-
-        // Act
-        let result = FiatService::<MockFiatExchanger>::get_total_count(&db).await;
-
-        // Assert
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 2);
     }
 }

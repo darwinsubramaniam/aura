@@ -6,8 +6,6 @@ use crate::fiat_exchanger::Rates;
 use crate::{db::Db, fiat_exchanger::FiatExchanger};
 use anyhow::{Context, Result};
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
-use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -414,29 +412,6 @@ async fn update_error_count_by_rate(
         .await
         .context("Failed to update error count")?;
     Ok(())
-}
-
-pub async fn get_conversion_amount(
-    rates: HashMap<String, f64>,
-    amount: f64,
-    to: &str,
-    from: &str,
-) -> Result<f64> {
-    let to_rate = rates
-        .get(to)
-        .context(format!("failed to get TO rate: {}", to))?;
-    let from_rate = rates
-        .get(from)
-        .context(format!("failed to get FROM rate: {}", from))?;
-
-    let to_rate_dec = Decimal::from_f64_retain(*to_rate).context("invalid to_rate")?;
-    let from_rate_dec = Decimal::from_f64_retain(*from_rate).context("invalid from_rate")?;
-    let amount_dec = Decimal::from_f64_retain(amount).context("invalid amount")?;
-
-    let converted_amount = amount_dec * (to_rate_dec / from_rate_dec);
-    let rounded_value = converted_amount.round_dp(2);
-
-    Ok(rounded_value.to_f64().unwrap())
 }
 
 #[cfg(test)]
