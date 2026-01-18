@@ -31,6 +31,8 @@ export interface FiatRampView {
   kind: RampKind;
   via_exchange: string;
   is_estimated: boolean;
+  is_non_working_day: boolean;
+  non_working_day_reason: string | null;
   converted_amount: number | null;
 }
 

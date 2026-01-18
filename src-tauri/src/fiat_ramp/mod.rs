@@ -90,6 +90,10 @@ pub struct FiatRampWithConversionView {
     pub via_exchange: String,
     #[sqlx(default)]
     pub is_estimated: bool,
+    #[sqlx(default)]
+    pub is_non_working_day: bool,
+    #[sqlx(default)]
+    pub non_working_day_reason: Option<String>,
     pub converted_amount: Option<f64>,
 }
 

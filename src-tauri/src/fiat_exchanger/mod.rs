@@ -23,6 +23,7 @@ pub type FiatSymbol = String;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Rates {
     pub base: String,
+    // the date which the rate was request / available in the server
     pub date: chrono::NaiveDate,
     pub rates: HashMap<FiatSymbol, f64>,
 }
