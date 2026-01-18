@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
-import { subWeeks } from "date-fns";
+import { subWeeks, startOfDay, endOfDay } from "date-fns";
 
 const STORAGE_KEY = "funding_date_filter_range";
 
@@ -23,8 +23,8 @@ export function useFundingDateFilter() {
     }
 
     // 2. Default to last 2 weeks if nothing stored
-    const end = new Date();
-    const start = subWeeks(end, 2);
+    const end = endOfDay(new Date());
+    const start = startOfDay(subWeeks(end, 2));
     return {
       from: start,
       to: end,
