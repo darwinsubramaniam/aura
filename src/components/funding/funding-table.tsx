@@ -74,6 +74,19 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
   const [itemToDelete, setItemToDelete] = useState<FiatRampView | null>(null);
   const [deleteSelectedDialogOpen, setDeleteSelectedDialogOpen] =
     useState(false);
+  const [availableRange, setAvailableRange] = useState<{
+    min: Date | null;
+    max: Date | null;
+  }>({ min: null, max: null });
+
+  useEffect(() => {
+    FiatRampCommand.getDateRange().then(([min, max]) => {
+      setAvailableRange({
+        min: min ? new Date(min) : null,
+        max: max ? new Date(max) : null,
+      });
+    });
+  }, [refreshTrigger]);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -388,10 +401,13 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col gap-1">
           <CardTitle>Funding History</CardTitle>
-          <p className="text-sm text-muted-foreground" data-testid="date-range-filter-text">
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="date-range-filter-text"
+          >
             {startDate && endDate
               ? `Showing records from ${format(startDate, "MMM d, yyyy")} to ${format(endDate, "MMM d, yyyy")}`
-              : "Showing all records"}
+              : `Showing all records${availableRange.min && availableRange.max ? ` (Data available: ${format(availableRange.min, "MMM d, yyyy")} - ${format(availableRange.max, "MMM d, yyyy")})` : ""}`}
           </p>
         </div>
         {Object.keys(rowSelection).length > 0 && (

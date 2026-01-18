@@ -16,6 +16,12 @@ vi.mock("@/lib/services/funding/fiatRamp.command", () => ({
         total_count: 0,
       })
     ),
+    getDateRange: vi.fn(() =>
+      Promise.resolve([
+        "2020-01-01T00:00:00.000Z",
+        "2023-12-31T00:00:00.000Z",
+      ])
+    ),
   },
 }));
 
@@ -31,13 +37,15 @@ describe("FundingTable", () => {
     vi.clearAllMocks();
   });
 
-  it("displays 'Showing all records' when no date range is provided", async () => {
+  it("displays 'Showing all records' with available range when no date range is provided", async () => {
     render(<FundingTable />);
     
     // Wait for the data to load (even if empty)
     await waitFor(() => {
         const filterText = screen.getByTestId("date-range-filter-text");
-        expect(filterText.textContent).toBe("Showing all records");
+        expect(filterText.textContent).toBe(
+          "Showing all records (Data available: Jan 1, 2020 - Dec 31, 2023)"
+        );
     });
   });
 
