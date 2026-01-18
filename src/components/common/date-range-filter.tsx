@@ -1,4 +1,4 @@
-import { format, subWeeks, subMonths, subYears } from "date-fns"
+import { format, subWeeks, subMonths, subYears, startOfDay, endOfDay } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 
@@ -30,27 +30,27 @@ export function DateRangeFilter({
   className,
 }: DateRangeFilterProps) {
   const handlePresetChange = (value: string) => {
-    const end = new Date()
+    const end = endOfDay(new Date())
     let start: Date | undefined
 
     switch (value) {
       case "1week":
-        start = subWeeks(end, 1)
+        start = startOfDay(subWeeks(end, 1))
         break
       case "2weeks":
-        start = subWeeks(end, 2)
+        start = startOfDay(subWeeks(end, 2))
         break
       case "1month":
-        start = subMonths(end, 1)
+        start = startOfDay(subMonths(end, 1))
         break
       case "3months":
-        start = subMonths(end, 3)
+        start = startOfDay(subMonths(end, 3))
         break
       case "6months":
-        start = subMonths(end, 6)
+        start = startOfDay(subMonths(end, 6))
         break
       case "1year":
-        start = subYears(end, 1)
+        start = startOfDay(subYears(end, 1))
         break
       case "all":
         setDate(undefined)
