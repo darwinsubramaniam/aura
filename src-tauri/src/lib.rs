@@ -21,6 +21,11 @@ pub struct AppConfig {
     env: String,
 }
 
+#[tauri::command]
+fn save_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let env = std::env::var("ENV").unwrap_or_else(|_| "dev".into());
@@ -77,6 +82,7 @@ pub fn run() {
             fiat_ramp_command::create_fiat_ramps_bulk,
             user_settings_command::get_user_settings,
             user_settings_command::update_user_settings,
+            save_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

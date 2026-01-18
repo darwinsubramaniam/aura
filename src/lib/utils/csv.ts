@@ -1,5 +1,5 @@
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { invoke } from '@tauri-apps/api/core';
 
 export function convertToCSV<T extends Record<string, any>>(
   data: T[],
@@ -39,7 +39,7 @@ export async function saveCSV(csvContent: string, defaultFilename: string): Prom
     });
 
     if (filePath) {
-      await writeTextFile(filePath, csvContent);
+      await invoke("save_text_file", { path: filePath, content: csvContent });
       return true;
     }
     return false; // User cancelled
