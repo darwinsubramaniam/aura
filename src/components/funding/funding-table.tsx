@@ -199,6 +199,8 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
         cell: ({ row }) => {
           const date = row.getValue("ramp_date") as string;
           const isEstimated = row.original.is_estimated;
+          const isNonWorkingDay = row.original.is_non_working_day;
+          const nonWorkingDayReason = row.original.non_working_day_reason;
 
           return (
             <div className="flex items-center gap-2">
@@ -209,7 +211,11 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
                     <Clock className="h-4 w-4 text-amber-500" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Estimated rate (fallback from previous day)</p>
+                    <p>
+                      {isNonWorkingDay
+                        ? `Non-working day (${nonWorkingDayReason ?? "market closed"}): using previous business day rate`
+                        : "Estimated rate (fallback from previous day)"}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -293,6 +299,14 @@ export default function FundingTable({ refreshTrigger, onDataChange, startDate, 
               <TooltipContent>
                 <p>
                   1 {fromSymbol} = {conversionRate.toFixed(4)} {symbol}
+                  {row.original.is_non_working_day &&
+                    ` (non-working day: ${
+                      row.original.non_working_day_reason === "weekend"
+                        ? "weekend"
+                        : row.original.non_working_day_reason === "public_holiday"
+                          ? "public holiday"
+                          : row.original.non_working_day_reason ?? "market closed"
+                    })`}
                 </p>
               </TooltipContent>
             </Tooltip>

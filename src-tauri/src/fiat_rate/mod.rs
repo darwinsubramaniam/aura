@@ -2,9 +2,10 @@ pub mod command;
 use crate::db::StringRowId;
 use crate::fiat::FiatService;
 use crate::fiat_exchanger::frankfurter_exchanger::FrankfurterExchangerApi;
+use crate::fiat_exchanger::Rates;
 use crate::{db::Db, fiat_exchanger::FiatExchanger};
 use anyhow::{Context, Result};
-use chrono::NaiveDate;
+use chrono::{Datelike, Duration, NaiveDate, Weekday};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,10 @@ pub struct FiatExchangeRate {
     pub date: NaiveDate,
     #[sqlx(default)]
     pub is_estimated: bool,
+    #[sqlx(default)]
+    pub is_non_working_day: bool,
+    #[sqlx(default)]
+    pub non_working_day_reason: Option<String>,
     #[sqlx(json)]
     pub rates: HashMap<String, f64>,
 }
@@ -32,6 +37,18 @@ struct MissingRate {
 }
 
 const MAX_RETRIES: i32 = 5;
+
+fn is_weekend(date: &NaiveDate) -> bool {
+    matches!(date.weekday(), Weekday::Sat | Weekday::Sun)
+}
+
+fn previous_business_day(date: &NaiveDate) -> NaiveDate {
+    let mut candidate = *date - Duration::days(1);
+    while is_weekend(&candidate) {
+        candidate -= Duration::days(1);
+    }
+    candidate
+}
 
 // Get the rate for a specific fiat and date
 // In FiatExchangeRate Table the base_fiat_id is the id of the USD dollar
@@ -66,16 +83,12 @@ pub async fn get_rate<A: FiatExchanger>(
         // Actually, even if estimated, if we found it in DB, we use it.
         // But the user might be calling this to trigger a "re-check" or "ensure consistent".
 
-        // If we have a ramp_id, we should update the queue to reflect that this ramp is waiting for THIS date.
-        // But if the rate is already good (not estimated), we should remove from queue.
-        if !rate.is_estimated {
-            if let Some(id) = fiat_ramp_id {
+        // If we have a ramp_id, update the queue only when it's a true retry case.
+        // Estimated rates caused by non-working days (weekends/holidays) should NOT be queued.
+        if let Some(id) = fiat_ramp_id {
+            if !rate.is_estimated || rate.is_non_working_day {
                 remove_from_missing_queue_by_ramp_id(db, id).await.ok();
-            }
-        } else {
-            // Rate is estimated.
-            // If ramp_id provided, ensure it's in the queue for THIS date/fiat (handling the update case).
-            if let Some(id) = fiat_ramp_id {
+            } else {
                 add_to_missing_queue(db, id, usd_fiat.id, date, Some("Using estimated rate"))
                     .await
                     .ok();
@@ -98,40 +111,17 @@ pub async fn get_rate<A: FiatExchanger>(
         .await;
 
     match api_result {
-        Ok(mut api_rates) => {
-            let diff = (*date - api_rates.date).num_days();
+        Ok(api_rates) => {
+            let (mut fiat_rate, should_retry) = process_and_insert_rate(
+                db,
+                usd_fiat.id,
+                date,
+                api_rates,
+                &base_symbol,
+            )
+            .await?;
 
-            // Insert base rate = 1.0 (Frankfurter API logic)
-            api_rates.rates.insert(base_symbol.clone(), 1.0);
-
-            if diff == 0 {
-                // Exact match
-                let fiat_rate = insert_rate(db, usd_fiat.id, date, &api_rates.rates, false).await?;
-
-                // Success - remove from missing queue for ALL ramps waiting for this rate
-                remove_from_missing_queue_by_rate(db, usd_fiat.id, date)
-                    .await
-                    .ok();
-                // Also explicitly remove for this ramp_id (just in case it was waiting for a diff date before)
-                if let Some(id) = fiat_ramp_id {
-                    remove_from_missing_queue_by_ramp_id(db, id).await.ok();
-                }
-
-                Ok(FiatExchangeRate {
-                    id: fiat_rate.id,
-                    base_fiat_id: usd_fiat.id,
-                    symbol: base_symbol,
-                    name: base_name,
-                    date: *date,
-                    is_estimated: false,
-                    rates: api_rates.rates,
-                })
-            } else if diff == 1 {
-                // Fallback (1 day old)
-                // Insert into DB as *estimated*, storing it under the requested `date`
-                let fiat_rate = insert_rate(db, usd_fiat.id, date, &api_rates.rates, true).await?;
-
-                // Add to missing queue to retry later for exact data
+            if should_retry {
                 if let Some(id) = fiat_ramp_id {
                     add_to_missing_queue(
                         db,
@@ -142,24 +132,18 @@ pub async fn get_rate<A: FiatExchanger>(
                     )
                     .await?;
                 }
-
-                Ok(FiatExchangeRate {
-                    id: fiat_rate.id,
-                    base_fiat_id: usd_fiat.id,
-                    symbol: base_symbol,
-                    name: base_name,
-                    date: *date,
-                    is_estimated: true,
-                    rates: api_rates.rates,
-                })
             } else {
-                // Too old (> 1 day)
-                let msg = format!("Rate too old. Gap: {} days", diff);
+                remove_from_missing_queue_by_rate(db, usd_fiat.id, date)
+                    .await
+                    .ok();
                 if let Some(id) = fiat_ramp_id {
-                    add_to_missing_queue(db, id, usd_fiat.id, date, Some(&msg)).await?;
+                    remove_from_missing_queue_by_ramp_id(db, id).await.ok();
                 }
-                Err(anyhow::anyhow!(msg))
             }
+
+            fiat_rate.symbol = base_symbol;
+            fiat_rate.name = base_name;
+            Ok(fiat_rate)
         }
         Err(e) => {
             // API Failure
@@ -170,6 +154,7 @@ pub async fn get_rate<A: FiatExchanger>(
         }
     }
 }
+
 
 pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) -> Result<()> {
     // 1. Fetch unique missing rates (grouped by fiat/date)
@@ -194,31 +179,43 @@ pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) 
                 .get_latest_rates(&base_fiat.symbol, Some(&item.date))
                 .await
             {
-                Ok(mut api_rates) => {
-                    let diff = (item.date - api_rates.date).num_days();
-                    if diff == 0 {
-                        // Found exact!
-                        api_rates.rates.insert(base_fiat.symbol.clone(), 1.0);
-
-                        if let Ok(_) =
-                            insert_rate(db, item.base_fiat_id, &item.date, &api_rates.rates, false)
-                                .await
-                        {
-                            // Success! Remove ALL queue entries waiting for this rate
-                            remove_from_missing_queue_by_rate(db, item.base_fiat_id, &item.date)
+                Ok(api_rates) => {
+                    match process_and_insert_rate(
+                        db,
+                        item.base_fiat_id,
+                        &item.date,
+                        api_rates,
+                        &base_fiat.symbol,
+                    )
+                    .await
+                    {
+                        Ok((_, should_retry)) => {
+                            if !should_retry {
+                                remove_from_missing_queue_by_rate(db, item.base_fiat_id, &item.date)
+                                    .await
+                                    .ok();
+                            } else {
+                                // Inserted fallback, but keep in queue
+                                update_error_count_by_rate(
+                                    db,
+                                    item.base_fiat_id,
+                                    &item.date,
+                                    "Fallback inserted: 1 day diff",
+                                )
                                 .await
                                 .ok();
+                            }
                         }
-                    } else {
-                        // Still old. Just update error count for ALL ramps waiting for this.
-                        update_error_count_by_rate(
-                            db,
-                            item.base_fiat_id,
-                            &item.date,
-                            "Retry: Still getting old data",
-                        )
-                        .await
-                        .ok();
+                        Err(e) => {
+                            update_error_count_by_rate(
+                                db,
+                                item.base_fiat_id,
+                                &item.date,
+                                &e.to_string(),
+                            )
+                            .await
+                            .ok();
+                        }
                     }
                 }
                 Err(e) => {
@@ -232,6 +229,72 @@ pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) 
     Ok(())
 }
 
+/// Helper: Process and insert rate (shared logic)
+/// - Returns: Rate and if the re-fetch should be retried, as exchanger might still not yet in the date zone of the user.
+async fn process_and_insert_rate(
+    db: &Db,
+    base_fiat_id: i64,
+    target_date: &NaiveDate,
+    mut api_rates: Rates,
+    base_symbol: &str,
+) -> Result<(FiatExchangeRate, bool)> {
+    let diff = (*target_date - api_rates.date).num_days();
+
+    // Insert base rate = 1.0 (Frankfurter API logic)
+    api_rates.rates.insert(base_symbol.to_string(), 1.0);
+
+    let is_non_working_day = diff > 0 && api_rates.date == previous_business_day(target_date);
+    let non_working_day_reason = if is_non_working_day {
+        Some(if is_weekend(target_date) {
+            "weekend"
+        } else {
+            "public_holiday"
+        })
+    } else {
+        None
+    };
+
+    let (is_estimated, is_nwd, final_reason, should_retry) =
+        determine_rate_status(diff, is_non_working_day, non_working_day_reason);
+
+    let fiat_rate = insert_rate(
+        db,
+        base_fiat_id,
+        target_date,
+        &api_rates.rates,
+        is_estimated,
+        is_nwd,
+        final_reason,
+    )
+    .await?;
+
+    Ok((fiat_rate, should_retry))
+}
+
+// Helper: Determine rate status based on diff and non-working day
+// Returns: (is_estimated, is_non_working_day, final_reason, should_retry)
+// should_retry = true means we should keep attempting to fetch better data (add/keep in queue)
+// should_retry = false means we have a definitive result (remove from queue)
+fn determine_rate_status(
+    diff: i64,
+    is_non_working_day: bool,
+    non_working_day_reason: Option<&'static str>,
+) -> (bool, bool, Option<&'static str>, bool) {
+    if diff == 0 {
+        (false, false, None, false)
+    } else if is_non_working_day {
+        (true, true, non_working_day_reason, false)
+    } else if diff == 1 {
+        // Fallback: 1 day old
+        // Estimated, but we want to retry (should_retry = true)
+        (true, false, None, true)
+    } else {
+        // > 1 day: Exchange closed
+        // Estimated, do NOT retry (should_retry = false)
+        (true, true, Some("exchange closed"), false)
+    }
+}
+
 // Helper: Insert (or Replace) Rate
 async fn insert_rate(
     db: &Db,
@@ -239,13 +302,15 @@ async fn insert_rate(
     date: &NaiveDate,
     rates: &HashMap<String, f64>,
     is_estimated: bool,
+    is_non_working_day: bool,
+    non_working_day_reason: Option<&str>,
 ) -> Result<FiatExchangeRate> {
     // We use INSERT OR REPLACE to handle cases where we are upgrading an estimated rate to a real one
     let sql = r#"
         INSERT OR REPLACE
         INTO fiat_exchange_rate
-        (base_fiat_id, date, rates, is_estimated)
-        VALUES (?, ?, ?, ?)
+        (base_fiat_id, date, rates, is_estimated, is_non_working_day, non_working_day_reason)
+        VALUES (?, ?, ?, ?, ?, ?)
         RETURNING *
     "#
     .split_whitespace()
@@ -257,6 +322,8 @@ async fn insert_rate(
         .bind(date)
         .bind(sqlx::types::Json(rates))
         .bind(is_estimated)
+        .bind(is_non_working_day)
+        .bind(non_working_day_reason)
         .fetch_one(&db.0)
         .await
         .context("Failed to insert/replace rate")?;
@@ -462,8 +529,8 @@ mod tests {
         let db = setup().await;
         let mut mock_frankfurt_api = MockFiatExchanger::new();
 
-        // Requested: 2026-02-02
-        // API Returns: 2026-02-01 (1 day gap)
+        // Requested: 2026-02-07 (Saturday)
+        // API Returns: 2026-02-06 (Friday)
         mock_frankfurt_api
             .expect_get_latest_rates()
             .times(1)
@@ -471,11 +538,11 @@ mod tests {
                 Ok(Rates {
                     rates: HashMap::from([("EUR".to_string(), 0.85)]),
                     base: "USD".to_string(),
-                    date: NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(),
+                    date: NaiveDate::from_ymd_opt(2026, 2, 6).unwrap(),
                 })
             });
 
-        let request_date = NaiveDate::from_ymd_opt(2026, 2, 2).unwrap();
+        let request_date = NaiveDate::from_ymd_opt(2026, 2, 7).unwrap();
 
         // Need a ramp ID for queue testing
         // Insert a dummy ramp to satisfy FK
@@ -496,24 +563,19 @@ mod tests {
         assert!(rate.is_ok());
         let rate = rate.unwrap();
 
-        // Should be estimated
+        // Should be estimated and marked as a non-working day
         assert!(rate.is_estimated);
+        assert!(rate.is_non_working_day);
+        assert_eq!(rate.non_working_day_reason.as_deref(), Some("weekend"));
         // Date in DB should be requested date
         assert_eq!(rate.date, request_date);
 
-        // Check queue
+        // Check queue (non-working days should NOT be queued)
         let queue: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_rate_missing")
             .fetch_one(&db.0)
             .await
             .unwrap();
-        assert_eq!(queue, 1);
-
-        let queued_ramp_id: String =
-            sqlx::query_scalar("SELECT fiat_ramp_id FROM fiat_rate_missing LIMIT 1")
-                .fetch_one(&db.0)
-                .await
-                .unwrap();
-        assert_eq!(queued_ramp_id, ramp_id);
+        assert_eq!(queue, 0);
     }
 
     #[tokio::test]
@@ -550,14 +612,19 @@ mod tests {
         )
         .await;
 
-        assert!(rate.is_err());
+        assert!(rate.is_ok());
+        let rate = rate.unwrap();
 
-        // Check queue
+        assert!(rate.is_estimated);
+        assert!(rate.is_non_working_day);
+        assert_eq!(rate.non_working_day_reason.as_deref(), Some("exchange closed"));
+
+        // Check queue (should be empty as we treat it as closed and don't retry)
         let queue: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_rate_missing")
             .fetch_one(&db.0)
             .await
             .unwrap();
-        assert_eq!(queue, 1);
+        assert_eq!(queue, 0);
     }
 
     #[tokio::test]
