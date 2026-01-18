@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { FiatRampCommand } from "@/lib/services/funding/fiatRamp.command"
 
 interface DateRangeFilterProps {
   date: DateRange | undefined
@@ -30,10 +29,9 @@ export function DateRangeFilter({
   setDate,
   className,
 }: DateRangeFilterProps) {
-  const handlePresetChange = async (value: string) => {
+  const handlePresetChange = (value: string) => {
     const end = new Date()
     let start: Date | undefined
-    let customEnd: Date | undefined
 
     switch (value) {
       case "1week":
@@ -55,24 +53,7 @@ export function DateRangeFilter({
         start = subYears(end, 1)
         break
       case "all":
-        try {
-            const [min, max] = await FiatRampCommand.getDateRange();
-            if (min) start = new Date(min);
-            if (max) customEnd = new Date(max);
-            
-            // If we found a start date, set the range. 
-            // If customEnd is found use it, otherwise use 'now' (though data might be in future? unlikely for ramps but safer to use max)
-            if (start) {
-                setDate({ from: start, to: customEnd || end })
-            } else {
-                // If no data exists, maybe clear filter?
-                setDate(undefined) 
-            }
-        } catch (e) {
-            console.error("Failed to fetch date range", e);
-            // Fallback to clearing filter or default
-            setDate(undefined)
-        }
+        setDate(undefined)
         return
     }
 
