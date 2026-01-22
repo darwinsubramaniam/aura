@@ -41,10 +41,10 @@ impl FiatExchanger for FrankfurterExchangerApi {
         Ok(currencies)
     }
 
-    async fn get_latest_rates<'a>(
+    async fn get_latest_rates(
         &self,
         base: &str,
-        date: Option<&'a chrono::NaiveDate>,
+        date: Option<&chrono::NaiveDate>,
     ) -> Result<Rates> {
         let url = if let Some(date) = date {
             format!("{}/v1/{date}?base={base}", self.base_url)

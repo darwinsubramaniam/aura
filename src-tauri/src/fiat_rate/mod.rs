@@ -70,7 +70,7 @@ pub async fn get_rate<A: FiatExchanger>(
         AND fiat_exchange_rate.date = ?
         "#,
     )
-    .bind(&usd_fiat.id)
+    .bind(usd_fiat.id)
     .bind(date)
     .fetch_one(&db.0)
     .await;
@@ -105,7 +105,7 @@ pub async fn get_rate<A: FiatExchanger>(
 
     // Call API
     let api_result = exchange_api
-        .get_latest_rates(&base_symbol.as_str(), Some(date))
+        .get_latest_rates(base_symbol.as_str(), Some(date))
         .await;
 
     match api_result {
@@ -142,7 +142,7 @@ pub async fn get_rate<A: FiatExchanger>(
             if let Some(id) = fiat_ramp_id {
                 add_to_missing_queue(db, id, usd_fiat.id, date, Some(&e.to_string())).await?;
             }
-            Err(e.into())
+            Err(e)
         }
     }
 }

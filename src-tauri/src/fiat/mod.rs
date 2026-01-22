@@ -26,6 +26,7 @@ impl<A: FiatExchanger + Default> Default for FiatService<A> {
 }
 
 impl<A: FiatExchanger> FiatService<A> {
+    #[cfg(test)]
     pub fn new(fiat_api_client: A) -> Self {
         Self { fiat_api_client }
     }
@@ -35,7 +36,7 @@ impl<A: FiatExchanger> FiatService<A> {
     // update database with supported currencies symbols and names
     pub async fn update_currencies(&self, db: &Db) -> Result<u8> {
         // last updated at
-        let last_updated_at = SysTracker::get_last_updated_at(FIAT_SYS_TRACKER_NAME, &db)
+        let last_updated_at = SysTracker::get_last_updated_at(FIAT_SYS_TRACKER_NAME, db)
             .await
             .context("failed to get last updated at")?;
 
@@ -81,7 +82,7 @@ impl<A: FiatExchanger> FiatService<A> {
         tx.commit().await.context("failed to commit transaction")?;
 
         // 3. Update SysTracker
-        SysTracker::update_last_updated_at(FIAT_SYS_TRACKER_NAME, &db)
+        SysTracker::update_last_updated_at(FIAT_SYS_TRACKER_NAME, db)
             .await
             .context("SysTracker update error")?;
         Ok(total_row_affected)
