@@ -1,3 +1,4 @@
+mod crypto_asset;
 mod crypto_exchange;
 mod db;
 mod fiat;

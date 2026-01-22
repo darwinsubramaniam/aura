@@ -4,7 +4,7 @@ use crate::fiat_exchanger::frankfurter_exchanger::FrankfurterExchangerApi;
 use crate::fiat_ramp::CreateFiatRamp;
 use crate::fiat_ramp::FiatRampPagination;
 use crate::fiat_ramp::FiatRampService;
-use crate::fiat_ramp::SortOptions;
+use crate::utils::pagination_model::SortOptions;
 use crate::fiat_ramp::UpdateFiatRamp;
 use crate::fiat_rate;
 

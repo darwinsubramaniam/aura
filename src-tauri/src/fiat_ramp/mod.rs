@@ -1,6 +1,7 @@
 pub mod command;
 use crate::db::{Db, RowId, StringRowId};
-use chrono::{NaiveDate, Utc};
+use crate::utils::pagination_model::{SortDirection, SortOptions};
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, sqlite::SqliteQueryResult};
 use std::collections::HashMap;
@@ -56,22 +57,6 @@ pub struct FiatRampSummary {
     pub fiat_symbol: String,
     pub fiat_name: String,
     pub data: HashMap<String, f64>,
-}
-
-/// Sorting direction for query results
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum SortDirection {
-    Asc,
-    #[default]
-    Desc,
-}
-
-/// Sorting options for fiat ramp queries
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct SortOptions {
-    pub column: Option<String>,
-    pub direction: Option<SortDirection>,
 }
 
 #[derive(Debug, FromRow, Serialize, Deserialize)]
