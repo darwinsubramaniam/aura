@@ -44,7 +44,7 @@ impl FiatExchanger for FrankfurterExchangerApi {
     async fn get_latest_rates(
         &self,
         base: &str,
-        date: Option<&chrono::NaiveDate>,
+        date: Option<chrono::NaiveDate>,
     ) -> Result<Rates> {
         let url = if let Some(date) = date {
             format!("{}/v1/{date}?base={base}", self.base_url)
@@ -97,7 +97,7 @@ mod tests {
         let rates = api
             .get_latest_rates(
                 "MYR",
-                Some(&chrono::NaiveDate::from_ymd_opt(2026, 2, 1).unwrap()),
+                Some(chrono::NaiveDate::from_ymd_opt(2026, 2, 1).unwrap()),
             )
             .await
             .unwrap();

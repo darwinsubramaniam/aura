@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(test, mockall::automock)]
 pub trait FiatExchanger {
     async fn get_available_currencies(&self) -> Result<Vec<Currency>>;
-    async fn get_latest_rates(&self, base: &str, date: Option<&NaiveDate>) -> Result<Rates>;
+    async fn get_latest_rates(&self, base: &str, date: Option<NaiveDate>) -> Result<Rates>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]

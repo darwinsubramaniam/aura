@@ -105,7 +105,7 @@ pub async fn get_rate<A: FiatExchanger>(
 
     // Call API
     let api_result = exchange_api
-        .get_latest_rates(base_symbol.as_str(), Some(date))
+        .get_latest_rates(base_symbol.as_str(), Some(*date))
         .await;
 
     match api_result {
@@ -167,7 +167,7 @@ pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) 
         // We use get_fiat_by_id to get symbol
         if let Ok(base_fiat) = FiatService::<A>::get_fiat_by_id(db, item.base_fiat_id).await {
             match exchange_api
-                .get_latest_rates(&base_fiat.symbol, Some(&item.date))
+                .get_latest_rates(&base_fiat.symbol, Some(item.date))
                 .await
             {
                 Ok(api_rates) => {
