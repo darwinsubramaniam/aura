@@ -110,14 +110,8 @@ pub async fn get_rate<A: FiatExchanger>(
 
     match api_result {
         Ok(api_rates) => {
-            let (mut fiat_rate, should_retry) = process_and_insert_rate(
-                db,
-                usd_fiat.id,
-                date,
-                api_rates,
-                &base_symbol,
-            )
-            .await?;
+            let (mut fiat_rate, should_retry) =
+                process_and_insert_rate(db, usd_fiat.id, date, api_rates, &base_symbol).await?;
 
             if should_retry {
                 if let Some(id) = fiat_ramp_id {
@@ -152,7 +146,6 @@ pub async fn get_rate<A: FiatExchanger>(
         }
     }
 }
-
 
 pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) -> Result<()> {
     // 1. Fetch unique missing rates (grouped by fiat/date)
@@ -189,9 +182,13 @@ pub async fn process_missing_rates<A: FiatExchanger>(db: &Db, exchange_api: &A) 
                     {
                         Ok((_, should_retry)) => {
                             if !should_retry {
-                                remove_from_missing_queue_by_rate(db, item.base_fiat_id, &item.date)
-                                    .await
-                                    .ok();
+                                remove_from_missing_queue_by_rate(
+                                    db,
+                                    item.base_fiat_id,
+                                    &item.date,
+                                )
+                                .await
+                                .ok();
                             } else {
                                 // Inserted fallback, but keep in queue
                                 update_error_count_by_rate(
@@ -592,7 +589,10 @@ mod tests {
 
         assert!(rate.is_estimated);
         assert!(rate.is_non_working_day);
-        assert_eq!(rate.non_working_day_reason.as_deref(), Some("exchange closed"));
+        assert_eq!(
+            rate.non_working_day_reason.as_deref(),
+            Some("exchange closed")
+        );
 
         // Check queue (should be empty as we treat it as closed and don't retry)
         let queue: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM fiat_rate_missing")

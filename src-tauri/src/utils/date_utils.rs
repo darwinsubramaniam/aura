@@ -19,12 +19,18 @@ mod tests {
     #[test]
     fn test_require_update_expired() {
         let last_updated_at = chrono::Local::now().naive_local() - chrono::Duration::hours(2);
-        assert!(require_update(Some(last_updated_at), chrono::Duration::hours(1)));
+        assert!(require_update(
+            Some(last_updated_at),
+            chrono::Duration::hours(1)
+        ));
     }
 
     #[test]
     fn test_require_update_not_expired() {
         let last_updated_at = chrono::Local::now().naive_local() - chrono::Duration::minutes(30);
-        assert!(!require_update(Some(last_updated_at), chrono::Duration::hours(1)));
+        assert!(!require_update(
+            Some(last_updated_at),
+            chrono::Duration::hours(1)
+        ));
     }
 }
