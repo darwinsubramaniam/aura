@@ -542,18 +542,27 @@ mod tests {
 
         // Search by part of the name
         let part_of_name = &fiat_name[0..4]; // e.g., "Mala" or "Sing"
-        let result = FiatRampService::get(10, 0, Some(part_of_name.to_string()), None, None, None, &db)
-            .await
-            .unwrap();
-        
+        let result =
+            FiatRampService::get(10, 0, Some(part_of_name.to_string()), None, None, None, &db)
+                .await
+                .unwrap();
+
         assert_eq!(result.total_count, 1);
         assert_eq!(result.fiat_ramps.len(), 1);
         assert_eq!(result.fiat_ramps[0].from_fiat_name, fiat_name);
 
         // Search by something that doesn't exist
-        let result = FiatRampService::get(10, 0, Some("NonExistent".to_string()), None, None, None, &db)
-            .await
-            .unwrap();
+        let result = FiatRampService::get(
+            10,
+            0,
+            Some("NonExistent".to_string()),
+            None,
+            None,
+            None,
+            &db,
+        )
+        .await
+        .unwrap();
         assert_eq!(result.total_count, 0);
     }
 

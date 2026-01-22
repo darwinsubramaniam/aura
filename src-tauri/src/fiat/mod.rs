@@ -15,7 +15,6 @@ pub struct Fiat {
     pub name: String,
 }
 
-
 const FIAT_SYS_TRACKER_NAME: &str = "fiat";
 
 impl<A: FiatExchanger + Default> Default for FiatService<A> {
@@ -32,7 +31,6 @@ impl<A: FiatExchanger> FiatService<A> {
     }
 }
 
-
 impl<A: FiatExchanger> FiatService<A> {
     // update database with supported currencies symbols and names
     pub async fn update_currencies(&self, db: &Db) -> Result<u8> {
@@ -41,7 +39,8 @@ impl<A: FiatExchanger> FiatService<A> {
             .await
             .context("failed to get last updated at")?;
 
-        let require_update = date_utils::require_update(last_updated_at, chrono::Duration::hours(24));
+        let require_update =
+            date_utils::require_update(last_updated_at, chrono::Duration::hours(24));
 
         if !require_update {
             return Ok(0);
