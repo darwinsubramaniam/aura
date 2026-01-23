@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS asset_crypto_exchanger (
     asset_id INTEGER NOT NULL,
     crypto_exchanger_id INTEGER NOT NULL,
+    actual_asset_id_in_exchanger TEXT NOT NULL, --! the id of the asset in the exchanger this can be number or string depend on the exchanger. conversion fall on the exchanger
+    data TEXT NULL, --! json data to store exchanger unique data about the asset.
     priority INTEGER NOT NULL DEFAULT 100,
     enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -27,6 +29,5 @@ WHEN NEW.updated_at = OLD.updated_at
 BEGIN
     UPDATE asset_crypto_exchanger
     SET updated_at = CURRENT_TIMESTAMP
-    WHERE id = NEW.id;
+    WHERE asset_id = NEW.asset_id AND crypto_exchanger_id = NEW.crypto_exchanger_id;
 END;
-

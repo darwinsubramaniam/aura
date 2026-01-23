@@ -1,10 +1,11 @@
 use crate::crypto_exchange::{
-    CryptoExchange, CryptoExchangeError, ExchangeRateRequest, ExchangeRateResponse, SupportedCoin,
+    CryptoExchange, CryptoExchangeError, ExchangeRateRequest, ExchangeRateResponse,
+    SupportedCryptoCoin,
 };
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use std::time::Duration;
 
@@ -48,11 +49,7 @@ struct CoinListEntry {
 
 #[async_trait]
 impl CryptoExchange for CoinGeckoService {
-    fn id(&self) -> &'static str {
-        "coingecko"
-    }
-
-    async fn list_supported_coins(&self) -> Result<Vec<SupportedCoin>, CryptoExchangeError> {
+    async fn list_supported_coins(&self) -> Result<Vec<SupportedCryptoCoin>, CryptoExchangeError> {
         let url = format!("{}/coins/list", COINGECKO_API_URL);
         let response = self
             .client
@@ -71,7 +68,7 @@ impl CryptoExchange for CoinGeckoService {
 
         Ok(coins
             .into_iter()
-            .map(|c| SupportedCoin {
+            .map(|c| SupportedCryptoCoin {
                 id: c.id,
                 symbol: c.symbol,
                 name: c.name,
@@ -88,7 +85,7 @@ impl CryptoExchange for CoinGeckoService {
             let date_str = date.format("%d-%m-%Y").to_string();
             let url = format!(
                 "{}/coins/{}/history?date={}&localization=false",
-                COINGECKO_API_URL, request.coin_id, date_str
+                COINGECKO_API_URL, request.crypto_coin_id, date_str
             );
 
             let response = self
@@ -113,7 +110,7 @@ impl CryptoExchange for CoinGeckoService {
             let rate = json
                 .get("market_data")
                 .and_then(|md| md.get("current_price"))
-                .and_then(|cp| cp.get(request.fiat_currency.to_lowercase().as_str()))
+                .and_then(|cp| cp.get(request.fiat_id.to_string().as_str()))
                 .and_then(|v| {
                     if v.is_f64() {
                         use rust_decimal::prelude::FromPrimitive;
@@ -129,15 +126,15 @@ impl CryptoExchange for CoinGeckoService {
                 Some(r) => Ok(ExchangeRateResponse { rate: r, date }),
                 None => Err(CryptoExchangeError::AssetNotFound(format!(
                     "Price not found for {} on {}",
-                    request.coin_id, date_str
+                    request.crypto_coin_id, date_str
                 ))),
             }
         } else {
             // Current Price
-            let fiat_lower = request.fiat_currency.to_lowercase();
+            let fiat_lower = request.fiat_id.to_string();
             let url = format!(
                 "{}/simple/price?ids={}&vs_currencies={}",
-                COINGECKO_API_URL, request.coin_id, fiat_lower
+                COINGECKO_API_URL, request.crypto_coin_id, fiat_lower
             );
 
             let response = self
@@ -156,7 +153,7 @@ impl CryptoExchange for CoinGeckoService {
             })?;
 
             let rate = json
-                .get(&request.coin_id)
+                .get(&request.crypto_coin_id.to_string())
                 .and_then(|c| c.get(&fiat_lower))
                 .and_then(|v| {
                     if v.is_f64() {
@@ -176,25 +173,28 @@ impl CryptoExchange for CoinGeckoService {
                 }),
                 None => Err(CryptoExchangeError::AssetNotFound(format!(
                     "Price not found for {}",
-                    request.coin_id
+                    request.crypto_coin_id
                 ))),
             }
         }
+    }
+
+    fn id(&self) -> &'static str {
+        "coingecko"
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
 
     #[tokio::test]
     #[ignore] // Integration test: hits external API
     async fn test_get_exchange_rate_current() {
         let service = CoinGeckoService::new();
         let request = ExchangeRateRequest {
-            coin_id: "bitcoin".to_string(),
-            fiat_currency: "usd".to_string(),
+            crypto_coin_id: 1,
+            fiat_id: 2,
             date: None,
         };
 
@@ -216,8 +216,8 @@ mod tests {
         // Public API limits history to 365 days. Use a date 30 days ago.
         let date = chrono::Local::now().date_naive() - chrono::Duration::days(30);
         let request = ExchangeRateRequest {
-            coin_id: "bitcoin".to_string(),
-            fiat_currency: "usd".to_string(),
+            crypto_coin_id: 1,
+            fiat_id: 2,
             date: Some(date),
         };
 
@@ -250,8 +250,8 @@ mod tests {
     async fn test_error_handling_invalid_coin() {
         let service = CoinGeckoService::new();
         let request = ExchangeRateRequest {
-            coin_id: "invalid-coin-id-12345".to_string(),
-            fiat_currency: "usd".to_string(),
+            crypto_coin_id: 999999,
+            fiat_id: 2,
             date: None,
         };
 

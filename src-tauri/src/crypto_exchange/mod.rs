@@ -6,6 +6,6 @@ pub mod traits;
 
 pub use coingecko::CoinGeckoService;
 pub use error::CryptoExchangeError;
-pub use models::{ExchangeRateRequest, ExchangeRateResponse, SupportedCoin};
+pub use models::{ExchangeRateRequest, ExchangeRateResponse, SupportedCryptoCoin};
 pub use service::CryptoExchangeManager;
 pub use traits::CryptoExchange;

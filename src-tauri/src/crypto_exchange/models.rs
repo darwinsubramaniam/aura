@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SupportedCoin {
+pub struct SupportedCryptoCoin {
     pub id: String,
     pub symbol: String,
     pub name: String,
@@ -11,8 +11,8 @@ pub struct SupportedCoin {
 
 #[derive(Debug, Clone)]
 pub struct ExchangeRateRequest {
-    pub coin_id: String,
-    pub fiat_currency: String,
+    pub crypto_coin_id: i64,
+    pub fiat_id: i64,
     pub date: Option<NaiveDate>,
 }
 

@@ -4,9 +4,9 @@ use crate::fiat_exchanger::frankfurter_exchanger::FrankfurterExchangerApi;
 use crate::fiat_ramp::CreateFiatRamp;
 use crate::fiat_ramp::FiatRampPagination;
 use crate::fiat_ramp::FiatRampService;
-use crate::utils::pagination_model::SortOptions;
 use crate::fiat_ramp::UpdateFiatRamp;
 use crate::fiat_rate;
+use crate::utils::pagination_model::SortOptions;
 
 use tauri::{Emitter, State, Window};
 
@@ -149,6 +149,9 @@ pub async fn update_fiat_ramp(fiat_ramp: UpdateFiatRamp, db: State<'_, Db>) -> R
     // Actually, we can just trigger get_rate IF fiat_id or ramp_date were updated.
     // But we need BOTH values to call get_rate.
     // So we must fetch the row.
+    // TODO : Do we really need the fiat_rate table to store the id of the fiat_ramp? This part can
+    // be rethinked to avoid storing and complecating the logic - only the base_fiat and the date
+    // of the rate is important
 
     let ramp_row = sqlx::query("SELECT fiat_id, ramp_date FROM fiat_ramp WHERE id = ?")
         .bind(&id)
